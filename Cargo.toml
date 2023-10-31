@@ -23,10 +23,16 @@ ethers-core = "2.0"
 ethers-providers = "2.0"
 ethers-contract = "2.0"
 eth-encode-packed = "0.1.0"
+
+# foundry
 foundry-evm = { git = "https://github.com/moricho/foundry.git", branch = "fix-dependencies" }
 anvil = { git = "https://github.com/moricho/foundry.git", branch = "fix-dependencies" }
+foundry-utils = { git = "https://github.com/moricho/foundry.git", branch = "fix-dependencies" }
 foundry-block-explorers = { version = "0.1", default-features = false }
 foundry-compilers = { version = "0.1", default-features = false }
+
+# alloy
+alloy-primitives = "0.4.2"
 
 colored = "2.0.0"
 log = "0.4.17"

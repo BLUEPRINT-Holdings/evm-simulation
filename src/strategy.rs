@@ -1,13 +1,13 @@
 use anvil::eth::fees::calculate_next_block_base_fee;
 use anyhow::Result;
 use cfmms::dex::DexVariant;
-use colored::Colorize;
 use ethers::{
     prelude::*,
     providers::{Middleware, Provider, Ws},
     types::{BlockId, BlockNumber, H160, U256, U64},
 };
 use foundry_evm::revm::primitives::keccak256;
+use foundry_utils::types::ToEthers;
 use log::info;
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 use tokio::sync::broadcast::Sender;
@@ -15,7 +15,7 @@ use tokio::sync::broadcast::Sender;
 use crate::constants::Env;
 use crate::honeypot::HoneypotFilter;
 use crate::pools::{load_all_pools, Pool};
-use crate::sandwich::{simulate_sandwich_bundle, Sandwich, SandwichSimulator};
+use crate::sandwich::{simulate_sandwich_bundle, Sandwich};
 use crate::streams::{Event, NewBlock};
 
 #[macro_export]
@@ -59,6 +59,7 @@ pub async fn get_touched_pools<M: Middleware + 'static>(
                     timeout: None,
                 },
                 state_overrides: None,
+                block_overrides: None,
             },
         )
         .await?;
@@ -99,10 +100,10 @@ pub async fn get_touched_pools<M: Middleware + 'static>(
                                             abi::Token::Address((*pool).into()),
                                             abi::Token::Uint(U256::from(slot)),
                                         ]));
-                                        if pre_storage.contains_key(&balance_slot.into()) {
+                                        if pre_storage.contains_key(&balance_slot.to_ethers()) {
                                             let pre_balance = U256::from(
                                                 pre_storage
-                                                    .get(&balance_slot.into())
+                                                    .get(&balance_slot.to_ethers())
                                                     .unwrap()
                                                     .to_fixed_bytes(),
                                             );
@@ -114,7 +115,7 @@ pub async fn get_touched_pools<M: Middleware + 'static>(
                                                 post_storage
                                                     .as_ref()
                                                     .unwrap()
-                                                    .get(&balance_slot.into())
+                                                    .get(&balance_slot.to_ethers())
                                                     .unwrap()
                                                     .to_fixed_bytes(),
                                             );

@@ -2018,6 +2018,7 @@ dependencies = [
 name = "evm-simulation"
 version = "0.1.0"
 dependencies = [
+ "alloy-primitives",
  "anvil",
  "anyhow",
  "async-trait",
@@ -2037,6 +2038,7 @@ dependencies = [
  "foundry-block-explorers",
  "foundry-compilers",
  "foundry-evm",
+ "foundry-utils",
  "futures",
  "hex",
  "indicatif",

@@ -6,6 +6,7 @@ use ethers::{
 };
 use ethers_providers::Middleware;
 use foundry_evm::revm::primitives::keccak256;
+use foundry_utils::types::ToEthers;
 use std::sync::Arc;
 
 pub struct EvmTracer<M> {
@@ -40,6 +41,7 @@ impl<M: Middleware + 'static> EvmTracer<M> {
                         timeout: None,
                     },
                     state_overrides: None,
+                    block_overrides: None,
                 },
             )
             .await
@@ -91,7 +93,7 @@ impl<M: Middleware + 'static> EvmTracer<M> {
                                 abi::Token::Address(owner.into()),
                                 abi::Token::Uint(U256::from(i)),
                             ]));
-                            match touched_storage.get(&slot.into()) {
+                            match touched_storage.get(&slot.to_ethers()) {
                                 Some(_) => {
                                     return Ok((true, i));
                                 }
