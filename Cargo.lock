@@ -79,7 +79,7 @@ checksum = "0942ffc6dcaadf03badf6e6a2d0228460359d5e34b57ccdc720b7382dfbd5ec5"
 [[package]]
 name = "alloy-dyn-abi"
 version = "0.4.2"
-source = "git+https://github.com/alloy-rs/core?rev=8971476b27e5c1e3f6dfefa06f46b63bde89fe80#8971476b27e5c1e3f6dfefa06f46b63bde89fe80"
+source = "git+https://github.com/alloy-rs/core/#8c0db49e5f7791322a45a5a907a407801e88a977"
 dependencies = [
  "alloy-json-abi",
  "alloy-primitives",
@@ -99,7 +99,7 @@ dependencies = [
 [[package]]
 name = "alloy-json-abi"
 version = "0.4.2"
-source = "git+https://github.com/alloy-rs/core?rev=8971476b27e5c1e3f6dfefa06f46b63bde89fe80#8971476b27e5c1e3f6dfefa06f46b63bde89fe80"
+source = "git+https://github.com/alloy-rs/core/#8c0db49e5f7791322a45a5a907a407801e88a977"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-type-parser",
@@ -110,7 +110,7 @@ dependencies = [
 [[package]]
 name = "alloy-primitives"
 version = "0.4.2"
-source = "git+https://github.com/alloy-rs/core?rev=8971476b27e5c1e3f6dfefa06f46b63bde89fe80#8971476b27e5c1e3f6dfefa06f46b63bde89fe80"
+source = "git+https://github.com/alloy-rs/core/#8c0db49e5f7791322a45a5a907a407801e88a977"
 dependencies = [
  "alloy-rlp",
  "arbitrary",
@@ -156,7 +156,7 @@ dependencies = [
 [[package]]
 name = "alloy-sol-macro"
 version = "0.4.2"
-source = "git+https://github.com/alloy-rs/core?rev=8971476b27e5c1e3f6dfefa06f46b63bde89fe80#8971476b27e5c1e3f6dfefa06f46b63bde89fe80"
+source = "git+https://github.com/alloy-rs/core/#8c0db49e5f7791322a45a5a907a407801e88a977"
 dependencies = [
  "const-hex",
  "dunce",
@@ -173,7 +173,7 @@ dependencies = [
 [[package]]
 name = "alloy-sol-type-parser"
 version = "0.4.2"
-source = "git+https://github.com/alloy-rs/core?rev=8971476b27e5c1e3f6dfefa06f46b63bde89fe80#8971476b27e5c1e3f6dfefa06f46b63bde89fe80"
+source = "git+https://github.com/alloy-rs/core/#8c0db49e5f7791322a45a5a907a407801e88a977"
 dependencies = [
  "winnow",
 ]
@@ -181,7 +181,7 @@ dependencies = [
 [[package]]
 name = "alloy-sol-types"
 version = "0.4.2"
-source = "git+https://github.com/alloy-rs/core?rev=8971476b27e5c1e3f6dfefa06f46b63bde89fe80#8971476b27e5c1e3f6dfefa06f46b63bde89fe80"
+source = "git+https://github.com/alloy-rs/core/#8c0db49e5f7791322a45a5a907a407801e88a977"
 dependencies = [
  "alloy-primitives",
  "alloy-sol-macro",
@@ -255,7 +255,7 @@ dependencies = [
 [[package]]
 name = "anvil"
 version = "0.2.0"
-source = "git+https://github.com/moricho/foundry.git?branch=fix-dependencies#dcb2aa453e68d9eea546bc812bb0ceb21df38660"
+source = "git+https://github.com/foundry-rs/foundry?rev=799b82071cca5f58e1ad3df0bfb1f920ff78407d#799b82071cca5f58e1ad3df0bfb1f920ff78407d"
 dependencies = [
  "alloy-primitives",
  "anvil-core",
@@ -302,7 +302,7 @@ dependencies = [
 [[package]]
 name = "anvil-core"
 version = "0.2.0"
-source = "git+https://github.com/moricho/foundry.git?branch=fix-dependencies#dcb2aa453e68d9eea546bc812bb0ceb21df38660"
+source = "git+https://github.com/foundry-rs/foundry?rev=799b82071cca5f58e1ad3df0bfb1f920ff78407d#799b82071cca5f58e1ad3df0bfb1f920ff78407d"
 dependencies = [
  "alloy-primitives",
  "bytes",
@@ -323,7 +323,7 @@ dependencies = [
 [[package]]
 name = "anvil-rpc"
 version = "0.2.0"
-source = "git+https://github.com/moricho/foundry.git?branch=fix-dependencies#dcb2aa453e68d9eea546bc812bb0ceb21df38660"
+source = "git+https://github.com/foundry-rs/foundry?rev=799b82071cca5f58e1ad3df0bfb1f920ff78407d#799b82071cca5f58e1ad3df0bfb1f920ff78407d"
 dependencies = [
  "serde",
  "serde_json",
@@ -332,7 +332,7 @@ dependencies = [
 [[package]]
 name = "anvil-server"
 version = "0.2.0"
-source = "git+https://github.com/moricho/foundry.git?branch=fix-dependencies#dcb2aa453e68d9eea546bc812bb0ceb21df38660"
+source = "git+https://github.com/foundry-rs/foundry?rev=799b82071cca5f58e1ad3df0bfb1f920ff78407d#799b82071cca5f58e1ad3df0bfb1f920ff78407d"
 dependencies = [
  "anvil-rpc",
  "async-trait",
@@ -1760,7 +1760,7 @@ dependencies = [
 [[package]]
 name = "ethers"
 version = "2.0.10"
-source = "git+https://github.com/gakonst/ethers-rs?rev=949feb7a37f511b3f5a21dc23dc51ef29b33b949#949feb7a37f511b3f5a21dc23dc51ef29b33b949"
+source = "git+https://github.com/gakonst/ethers-rs?rev=efdc8d43318b818178c93a19a42b2b7e49e678eb#efdc8d43318b818178c93a19a42b2b7e49e678eb"
 dependencies = [
  "ethers-addressbook",
  "ethers-contract",
@@ -1775,7 +1775,7 @@ dependencies = [
 [[package]]
 name = "ethers-addressbook"
 version = "2.0.10"
-source = "git+https://github.com/gakonst/ethers-rs?rev=949feb7a37f511b3f5a21dc23dc51ef29b33b949#949feb7a37f511b3f5a21dc23dc51ef29b33b949"
+source = "git+https://github.com/gakonst/ethers-rs?rev=efdc8d43318b818178c93a19a42b2b7e49e678eb#efdc8d43318b818178c93a19a42b2b7e49e678eb"
 dependencies = [
  "ethers-core",
  "once_cell",
@@ -1786,7 +1786,7 @@ dependencies = [
 [[package]]
 name = "ethers-contract"
 version = "2.0.10"
-source = "git+https://github.com/gakonst/ethers-rs?rev=949feb7a37f511b3f5a21dc23dc51ef29b33b949#949feb7a37f511b3f5a21dc23dc51ef29b33b949"
+source = "git+https://github.com/gakonst/ethers-rs?rev=efdc8d43318b818178c93a19a42b2b7e49e678eb#efdc8d43318b818178c93a19a42b2b7e49e678eb"
 dependencies = [
  "const-hex",
  "ethers-contract-abigen",
@@ -1804,7 +1804,7 @@ dependencies = [
 [[package]]
 name = "ethers-contract-abigen"
 version = "2.0.10"
-source = "git+https://github.com/gakonst/ethers-rs?rev=949feb7a37f511b3f5a21dc23dc51ef29b33b949#949feb7a37f511b3f5a21dc23dc51ef29b33b949"
+source = "git+https://github.com/gakonst/ethers-rs?rev=efdc8d43318b818178c93a19a42b2b7e49e678eb#efdc8d43318b818178c93a19a42b2b7e49e678eb"
 dependencies = [
  "Inflector",
  "const-hex",
@@ -1827,7 +1827,7 @@ dependencies = [
 [[package]]
 name = "ethers-contract-derive"
 version = "2.0.10"
-source = "git+https://github.com/gakonst/ethers-rs?rev=949feb7a37f511b3f5a21dc23dc51ef29b33b949#949feb7a37f511b3f5a21dc23dc51ef29b33b949"
+source = "git+https://github.com/gakonst/ethers-rs?rev=efdc8d43318b818178c93a19a42b2b7e49e678eb#efdc8d43318b818178c93a19a42b2b7e49e678eb"
 dependencies = [
  "Inflector",
  "const-hex",
@@ -1842,7 +1842,7 @@ dependencies = [
 [[package]]
 name = "ethers-core"
 version = "2.0.10"
-source = "git+https://github.com/gakonst/ethers-rs?rev=949feb7a37f511b3f5a21dc23dc51ef29b33b949#949feb7a37f511b3f5a21dc23dc51ef29b33b949"
+source = "git+https://github.com/gakonst/ethers-rs?rev=efdc8d43318b818178c93a19a42b2b7e49e678eb#efdc8d43318b818178c93a19a42b2b7e49e678eb"
 dependencies = [
  "arrayvec",
  "bytes",
@@ -1871,8 +1871,9 @@ dependencies = [
 [[package]]
 name = "ethers-etherscan"
 version = "2.0.10"
-source = "git+https://github.com/gakonst/ethers-rs?rev=949feb7a37f511b3f5a21dc23dc51ef29b33b949#949feb7a37f511b3f5a21dc23dc51ef29b33b949"
+source = "git+https://github.com/gakonst/ethers-rs?rev=efdc8d43318b818178c93a19a42b2b7e49e678eb#efdc8d43318b818178c93a19a42b2b7e49e678eb"
 dependencies = [
+ "chrono",
  "ethers-core",
  "ethers-solc",
  "reqwest",
@@ -1904,7 +1905,7 @@ dependencies = [
 [[package]]
 name = "ethers-middleware"
 version = "2.0.10"
-source = "git+https://github.com/gakonst/ethers-rs?rev=949feb7a37f511b3f5a21dc23dc51ef29b33b949#949feb7a37f511b3f5a21dc23dc51ef29b33b949"
+source = "git+https://github.com/gakonst/ethers-rs?rev=efdc8d43318b818178c93a19a42b2b7e49e678eb#efdc8d43318b818178c93a19a42b2b7e49e678eb"
 dependencies = [
  "async-trait",
  "auto_impl",
@@ -1930,7 +1931,7 @@ dependencies = [
 [[package]]
 name = "ethers-providers"
 version = "2.0.10"
-source = "git+https://github.com/gakonst/ethers-rs?rev=949feb7a37f511b3f5a21dc23dc51ef29b33b949#949feb7a37f511b3f5a21dc23dc51ef29b33b949"
+source = "git+https://github.com/gakonst/ethers-rs?rev=efdc8d43318b818178c93a19a42b2b7e49e678eb#efdc8d43318b818178c93a19a42b2b7e49e678eb"
 dependencies = [
  "async-trait",
  "auto_impl",
@@ -1968,7 +1969,7 @@ dependencies = [
 [[package]]
 name = "ethers-signers"
 version = "2.0.10"
-source = "git+https://github.com/gakonst/ethers-rs?rev=949feb7a37f511b3f5a21dc23dc51ef29b33b949#949feb7a37f511b3f5a21dc23dc51ef29b33b949"
+source = "git+https://github.com/gakonst/ethers-rs?rev=efdc8d43318b818178c93a19a42b2b7e49e678eb#efdc8d43318b818178c93a19a42b2b7e49e678eb"
 dependencies = [
  "async-trait",
  "coins-bip32",
@@ -1986,7 +1987,7 @@ dependencies = [
 [[package]]
 name = "ethers-solc"
 version = "2.0.10"
-source = "git+https://github.com/gakonst/ethers-rs?rev=949feb7a37f511b3f5a21dc23dc51ef29b33b949#949feb7a37f511b3f5a21dc23dc51ef29b33b949"
+source = "git+https://github.com/gakonst/ethers-rs?rev=efdc8d43318b818178c93a19a42b2b7e49e678eb#efdc8d43318b818178c93a19a42b2b7e49e678eb"
 dependencies = [
  "cfg-if",
  "const-hex",
@@ -2035,8 +2036,6 @@ dependencies = [
  "ethers-flashbots",
  "ethers-providers",
  "fern",
- "foundry-block-explorers",
- "foundry-compilers",
  "foundry-evm",
  "foundry-utils",
  "futures",
@@ -2198,7 +2197,7 @@ checksum = "00b0228411908ca8685dba7fc2cdd70ec9990a6e753e89b6ac91a84c40fbaf4b"
 [[package]]
 name = "forge-fmt"
 version = "0.2.0"
-source = "git+https://github.com/moricho/foundry.git?branch=fix-dependencies#dcb2aa453e68d9eea546bc812bb0ceb21df38660"
+source = "git+https://github.com/foundry-rs/foundry?rev=799b82071cca5f58e1ad3df0bfb1f920ff78407d#799b82071cca5f58e1ad3df0bfb1f920ff78407d"
 dependencies = [
  "alloy-primitives",
  "ariadne",
@@ -2221,7 +2220,7 @@ dependencies = [
 [[package]]
 name = "foundry-abi"
 version = "0.2.0"
-source = "git+https://github.com/moricho/foundry.git?branch=fix-dependencies#dcb2aa453e68d9eea546bc812bb0ceb21df38660"
+source = "git+https://github.com/foundry-rs/foundry?rev=799b82071cca5f58e1ad3df0bfb1f920ff78407d#799b82071cca5f58e1ad3df0bfb1f920ff78407d"
 dependencies = [
  "ethers-contract",
  "ethers-contract-abigen",
@@ -2250,9 +2249,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "foundry-cheatcodes"
+version = "0.2.0"
+source = "git+https://github.com/foundry-rs/foundry?rev=799b82071cca5f58e1ad3df0bfb1f920ff78407d#799b82071cca5f58e1ad3df0bfb1f920ff78407d"
+dependencies = [
+ "alloy-dyn-abi",
+ "alloy-json-abi",
+ "alloy-primitives",
+ "alloy-sol-types",
+ "const-hex",
+ "ethers-core",
+ "ethers-providers",
+ "ethers-signers",
+ "eyre",
+ "foundry-common",
+ "foundry-compilers",
+ "foundry-config",
+ "foundry-evm-core",
+ "foundry-macros",
+ "foundry-utils",
+ "itertools 0.11.0",
+ "jsonpath_lib",
+ "revm",
+ "serde",
+ "serde_json",
+ "tracing",
+ "walkdir",
+]
+
+[[package]]
 name = "foundry-common"
 version = "0.2.0"
-source = "git+https://github.com/moricho/foundry.git?branch=fix-dependencies#dcb2aa453e68d9eea546bc812bb0ceb21df38660"
+source = "git+https://github.com/foundry-rs/foundry?rev=799b82071cca5f58e1ad3df0bfb1f920ff78407d#799b82071cca5f58e1ad3df0bfb1f920ff78407d"
 dependencies = [
  "alloy-dyn-abi",
  "alloy-json-abi",
@@ -2326,7 +2354,7 @@ dependencies = [
 [[package]]
 name = "foundry-config"
 version = "0.2.0"
-source = "git+https://github.com/moricho/foundry.git?branch=fix-dependencies#dcb2aa453e68d9eea546bc812bb0ceb21df38660"
+source = "git+https://github.com/foundry-rs/foundry?rev=799b82071cca5f58e1ad3df0bfb1f920ff78407d#799b82071cca5f58e1ad3df0bfb1f920ff78407d"
 dependencies = [
  "Inflector",
  "alloy-primitives",
@@ -2358,16 +2386,15 @@ dependencies = [
 [[package]]
 name = "foundry-evm"
 version = "0.2.0"
-source = "git+https://github.com/moricho/foundry.git?branch=fix-dependencies#dcb2aa453e68d9eea546bc812bb0ceb21df38660"
+source = "git+https://github.com/foundry-rs/foundry?rev=799b82071cca5f58e1ad3df0bfb1f920ff78407d#799b82071cca5f58e1ad3df0bfb1f920ff78407d"
 dependencies = [
  "alloy-dyn-abi",
  "alloy-json-abi",
  "alloy-primitives",
- "bytes",
  "const-hex",
  "ethers",
  "eyre",
- "foundry-abi",
+ "foundry-cheatcodes",
  "foundry-common",
  "foundry-compilers",
  "foundry-config",
@@ -2378,23 +2405,17 @@ dependencies = [
  "foundry-macros",
  "foundry-utils",
  "hashbrown 0.14.0",
- "itertools 0.11.0",
- "jsonpath_lib",
- "once_cell",
  "parking_lot",
  "proptest",
  "revm",
- "serde",
- "serde_json",
  "thiserror",
  "tracing",
- "walkdir",
 ]
 
 [[package]]
 name = "foundry-evm-core"
 version = "0.2.0"
-source = "git+https://github.com/moricho/foundry.git?branch=fix-dependencies#dcb2aa453e68d9eea546bc812bb0ceb21df38660"
+source = "git+https://github.com/foundry-rs/foundry?rev=799b82071cca5f58e1ad3df0bfb1f920ff78407d#799b82071cca5f58e1ad3df0bfb1f920ff78407d"
 dependencies = [
  "alloy-dyn-abi",
  "alloy-json-abi",
@@ -2425,7 +2446,7 @@ dependencies = [
 [[package]]
 name = "foundry-evm-coverage"
 version = "0.2.0"
-source = "git+https://github.com/moricho/foundry.git?branch=fix-dependencies#dcb2aa453e68d9eea546bc812bb0ceb21df38660"
+source = "git+https://github.com/foundry-rs/foundry?rev=799b82071cca5f58e1ad3df0bfb1f920ff78407d#799b82071cca5f58e1ad3df0bfb1f920ff78407d"
 dependencies = [
  "alloy-primitives",
  "eyre",
@@ -2440,7 +2461,7 @@ dependencies = [
 [[package]]
 name = "foundry-evm-fuzz"
 version = "0.2.0"
-source = "git+https://github.com/moricho/foundry.git?branch=fix-dependencies#dcb2aa453e68d9eea546bc812bb0ceb21df38660"
+source = "git+https://github.com/foundry-rs/foundry?rev=799b82071cca5f58e1ad3df0bfb1f920ff78407d#799b82071cca5f58e1ad3df0bfb1f920ff78407d"
 dependencies = [
  "alloy-dyn-abi",
  "alloy-json-abi",
@@ -2467,7 +2488,7 @@ dependencies = [
 [[package]]
 name = "foundry-evm-traces"
 version = "0.2.0"
-source = "git+https://github.com/moricho/foundry.git?branch=fix-dependencies#dcb2aa453e68d9eea546bc812bb0ceb21df38660"
+source = "git+https://github.com/foundry-rs/foundry?rev=799b82071cca5f58e1ad3df0bfb1f920ff78407d#799b82071cca5f58e1ad3df0bfb1f920ff78407d"
 dependencies = [
  "alloy-dyn-abi",
  "alloy-json-abi",
@@ -2496,7 +2517,7 @@ dependencies = [
 [[package]]
 name = "foundry-macros"
 version = "0.2.0"
-source = "git+https://github.com/moricho/foundry.git?branch=fix-dependencies#dcb2aa453e68d9eea546bc812bb0ceb21df38660"
+source = "git+https://github.com/foundry-rs/foundry?rev=799b82071cca5f58e1ad3df0bfb1f920ff78407d#799b82071cca5f58e1ad3df0bfb1f920ff78407d"
 dependencies = [
  "alloy-dyn-abi",
  "alloy-primitives",
@@ -2509,7 +2530,7 @@ dependencies = [
 [[package]]
 name = "foundry-macros-impl"
 version = "0.2.0"
-source = "git+https://github.com/moricho/foundry.git?branch=fix-dependencies#dcb2aa453e68d9eea546bc812bb0ceb21df38660"
+source = "git+https://github.com/foundry-rs/foundry?rev=799b82071cca5f58e1ad3df0bfb1f920ff78407d#799b82071cca5f58e1ad3df0bfb1f920ff78407d"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -2520,11 +2541,11 @@ dependencies = [
 [[package]]
 name = "foundry-utils"
 version = "0.2.0"
-source = "git+https://github.com/moricho/foundry.git?branch=fix-dependencies#dcb2aa453e68d9eea546bc812bb0ceb21df38660"
+source = "git+https://github.com/foundry-rs/foundry?rev=799b82071cca5f58e1ad3df0bfb1f920ff78407d#799b82071cca5f58e1ad3df0bfb1f920ff78407d"
 dependencies = [
- "alloy-dyn-abi",
  "alloy-json-abi",
  "alloy-primitives",
+ "alloy-sol-types",
  "dunce",
  "ethers-addressbook",
  "ethers-contract",
@@ -5324,7 +5345,7 @@ dependencies = [
 [[package]]
 name = "syn-solidity"
 version = "0.4.2"
-source = "git+https://github.com/alloy-rs/core?rev=8971476b27e5c1e3f6dfefa06f46b63bde89fe80#8971476b27e5c1e3f6dfefa06f46b63bde89fe80"
+source = "git+https://github.com/alloy-rs/core/#8c0db49e5f7791322a45a5a907a407801e88a977"
 dependencies = [
  "paste",
  "proc-macro2",
