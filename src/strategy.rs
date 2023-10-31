@@ -163,7 +163,7 @@ pub async fn event_handler(provider: Arc<Provider<Ws>>, event_sender: Sender<Eve
 
     let mut honeypot_filter = HoneypotFilter::new(provider.clone(), block.clone());
     honeypot_filter.setup().await;
-    honeypot_filter
+    let _ = honeypot_filter
         .filter_tokens(&pools[0..3000].to_vec())
         .await;
 
