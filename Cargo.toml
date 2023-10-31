@@ -43,6 +43,7 @@ chrono = "0.4.23"
 csv = "1.2.2"
 
 [patch.crates-io]
+# Ethers revisions are specified to support solang-parser v0.3.3. Without this, the build fails with the version mismatch error.
 ethers = { git = "https://github.com/gakonst/ethers-rs", rev = "949feb7a37f511b3f5a21dc23dc51ef29b33b949" }
 ethers-addressbook = { git = "https://github.com/gakonst/ethers-rs", rev = "949feb7a37f511b3f5a21dc23dc51ef29b33b949" }
 ethers-core = { git = "https://github.com/gakonst/ethers-rs", rev = "949feb7a37f511b3f5a21dc23dc51ef29b33b949" }
