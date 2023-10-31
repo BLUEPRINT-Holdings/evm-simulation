@@ -8,6 +8,8 @@ use crate::simulator::EvmSimulator;
 use crate::tokens::{get_implementation, get_token_info, Token};
 use crate::trace::EvmTracer;
 
+const WETH_SWAP_AMOUNT: f64 = 0.1;
+
 #[derive(Debug, Clone)]
 pub struct SafeTokens {
     pub weth: H160,
@@ -96,7 +98,6 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
                         if slot.0 {
                             self.balance_slots.insert(token, slot.1);
                             let mut info = get_token_info(provider.clone(), token).await.unwrap();
-                            info!("{} ({:?}): {:?}", info.name, token, slot.1);
                             match get_implementation(provider.clone(), token, *block_number).await {
                                 Ok(implementation) => info.add_implementation(implementation),
                                 Err(_) => {}
@@ -144,9 +145,10 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
                 // We take extra measures to filter out the pools with too little liquidity
                 // Using the below amount to test swaps, we know that there's enough liquidity in the pool
                 let mut amount_in_u32 = 1;
+                let mut amount_in_f64 = 1.0;
 
                 if safe_token == self.safe_tokens.weth {
-                    amount_in_u32 = 20;
+                    amount_in_f64 = WETH_SWAP_AMOUNT;
                 } else if safe_token == self.safe_tokens.usdt {
                     amount_in_u32 = 10000;
                 } else if safe_token == self.safe_tokens.usdc {
@@ -172,9 +174,13 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
                     idx, safe_token_info.symbol, test_token
                 );
 
-                let amount_in = U256::from(amount_in_u32)
-                    .checked_mul(U256::from(10).pow(U256::from(safe_token_info.decimals)))
-                    .unwrap();
+                let amount_in = if safe_token == self.safe_tokens.weth {
+                    U256::from((amount_in_f64 * 10f64.powi(18)) as u64)
+                } else {
+                    U256::from(amount_in_u32)
+                        .checked_mul(U256::from(10).pow(U256::from(safe_token_info.decimals)))
+                        .unwrap()
+                };
 
                 // Buy Test
                 let buy_output = self.simulator.v2_simulate_swap(
