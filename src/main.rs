@@ -4,16 +4,13 @@ use ethers::providers::{Middleware, Provider, Ws};
 use ethers::types::{BlockNumber, H160, U256};
 use log::info;
 use std::{str::FromStr, sync::Arc};
-use tokio::sync::broadcast::{self, Sender};
-use tokio::task::JoinSet;
 
 use evm_simulation::arbitrage::{simulate_triangular_arbitrage, TriangularArbitrage};
 use evm_simulation::constants::Env;
 use evm_simulation::honeypot::HoneypotFilter;
 use evm_simulation::paths::generate_triangular_paths;
 use evm_simulation::pools::{load_all_pools, Pool};
-use evm_simulation::strategy::event_handler;
-use evm_simulation::streams::{stream_new_blocks, stream_pending_transactions, Event};
+
 use evm_simulation::utils::setup_logger;
 
 #[tokio::main]
@@ -90,8 +87,8 @@ async fn main() -> Result<()> {
             block.number.unwrap(),
             None,
         ) {
-            Ok(profit) => {}
-            Err(e) => {}
+            Ok(_profit) => {}
+            Err(_e) => {}
         }
     }
 

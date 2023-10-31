@@ -68,7 +68,7 @@ pub fn simulate_triangular_arbitrage<M: Middleware + 'static>(
     }
 
     let profit = (amount_out.as_u64() as i128) - (arb.amount_in.as_u64() as i128);
-    let divisor = (10.0 as f64).powi(target_token.decimals as i32);
+    let divisor = 10.0_f64.powi(target_token.decimals as i32);
     let profit_in_target_token = (profit as f64) / divisor;
     info!(
         "▶️ Profit: {:?} {}",

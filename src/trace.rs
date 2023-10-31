@@ -90,7 +90,7 @@ impl<M: Middleware + 'static> EvmTracer<M> {
                             .ok_or(anyhow!("no storage values"))?;
                         for i in 0..20 {
                             let slot = keccak256(&abi::encode(&[
-                                abi::Token::Address(owner.into()),
+                                abi::Token::Address(owner),
                                 abi::Token::Uint(U256::from(i)),
                             ]));
                             match touched_storage.get(&slot.to_ethers()) {

@@ -246,8 +246,8 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         slot: u32,
         balance: u32,
     ) {
-        let slot = keccak256(&abi::encode(&[
-            abi::Token::Address(account.into()),
+        let slot = keccak256(abi::encode(&[
+            abi::Token::Address(account),
             abi::Token::Uint(U256::from(slot)),
         ]));
         let target_balance = rU256::from(balance)
@@ -264,7 +264,7 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
     pub fn token_balance_of(&mut self, token: H160, account: H160) -> Result<U256> {
         let calldata = self.token.balance_of_input(account)?;
         let value = self.staticcall(Tx {
-            caller: self.owner.into(),
+            caller: self.owner,
             transact_to: token,
             data: calldata.0,
             value: U256::zero(),
@@ -281,7 +281,7 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
             .db
             .as_mut()
             .unwrap()
-            .insert_account_storage(pool.to_alloy(), slot.into(), reserves)
+            .insert_account_storage(pool.to_alloy(), slot, reserves)
             .unwrap();
     }
 

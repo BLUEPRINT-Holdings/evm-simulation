@@ -74,13 +74,14 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
             .await
             .unwrap();
 
-        for token in vec![
+        for token in [
             self.safe_tokens.usdt,
             self.safe_tokens.weth,
             self.safe_tokens.usdc,
             self.safe_tokens.dai,
         ] {
-            if !self.safe_token_info.contains_key(&token) {
+            if let std::collections::hash_map::Entry::Vacant(e) = self.safe_token_info.entry(token)
+            {
                 match tracer
                     .find_balance_slot(
                         token,
@@ -100,7 +101,7 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
                                 Ok(implementation) => info.add_implementation(implementation),
                                 Err(_) => {}
                             }
-                            self.safe_token_info.insert(token, info);
+                            e.insert(info);
                         }
                     }
                     Err(_) => {}

@@ -73,7 +73,7 @@ pub async fn get_touched_pools<M: Middleware + 'static>(
                     // Step 1: Check if any of the pools I'm monitoring were touched
                     let mut touched_pools = Vec::new();
                     for (acc, _) in &diff.post {
-                        if verified_pools_map.contains_key(&acc) {
+                        if verified_pools_map.contains_key(acc) {
                             touched_pools.push(*acc);
                             sandwichable_pools.insert(*acc, None);
                         }
@@ -97,7 +97,7 @@ pub async fn get_touched_pools<M: Middleware + 'static>(
                                     let slot = *balance_slots.get(&safe_token.address).unwrap();
                                     for pool in &touched_pools {
                                         let balance_slot = keccak256(&abi::encode(&[
-                                            abi::Token::Address((*pool).into()),
+                                            abi::Token::Address(*pool),
                                             abi::Token::Uint(U256::from(slot)),
                                         ]));
                                         if pre_storage.contains_key(&balance_slot.to_ethers()) {
@@ -222,7 +222,7 @@ pub async fn event_handler(provider: Arc<Provider<Ws>>, event_sender: Sender<Eve
                     .await
                     {
                         Ok(touched_pools) => {
-                            if touched_pools.len() > 0 {
+                            if !touched_pools.is_empty() {
                                 info!(
                                     "[🌯🥪🌯🥪🌯] Sandwichable pools detected: {:?}",
                                     touched_pools
