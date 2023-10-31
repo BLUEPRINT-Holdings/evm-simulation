@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-bytes = "1.2.1"
+bytes = "1.5"
 hex = "0.4.3"
 dotenv = "0.15.0"
 tokio = { version = "1.29.0", features = ["full"] }
@@ -17,19 +17,42 @@ serde_json = "1.0"
 itertools = "0.11.0"
 
 cfmms = "*"
-ethers-flashbots = { git = "https://github.com/onbjerg/ethers-flashbots"}
-ethers = { version = "2.0", features = ["abigen", "ws"]}
+ethers-flashbots = { git = "https://github.com/onbjerg/ethers-flashbots" }
+ethers = { version = "2.0", features = ["abigen", "ws"] }
 ethers-core = "2.0"
 ethers-providers = "2.0"
 ethers-contract = "2.0"
-foundry-evm = { git = "https://github.com/solidquant/foundry.git", branch = "version-fix" }
-anvil = { git = "https://github.com/solidquant/foundry.git", branch = "version-fix" }
 eth-encode-packed = "0.1.0"
+foundry-evm = { git = "https://github.com/moricho/foundry.git", branch = "fix-dependencies" }
+anvil = { git = "https://github.com/moricho/foundry.git", branch = "fix-dependencies" }
+foundry-block-explorers = { version = "0.1", default-features = false }
+foundry-compilers = { version = "0.1", default-features = false }
 
 colored = "2.0.0"
 log = "0.4.17"
 indicatif = "0.17.5"
 indoc = "2"
-fern = {version = "0.6.2", features = ["colored"]}
+fern = { version = "0.6.2", features = ["colored"] }
 chrono = "0.4.23"
 csv = "1.2.2"
+
+[patch.crates-io]
+ethers = { git = "https://github.com/gakonst/ethers-rs", rev = "949feb7a37f511b3f5a21dc23dc51ef29b33b949" }
+ethers-addressbook = { git = "https://github.com/gakonst/ethers-rs", rev = "949feb7a37f511b3f5a21dc23dc51ef29b33b949" }
+ethers-core = { git = "https://github.com/gakonst/ethers-rs", rev = "949feb7a37f511b3f5a21dc23dc51ef29b33b949" }
+ethers-contract = { git = "https://github.com/gakonst/ethers-rs", rev = "949feb7a37f511b3f5a21dc23dc51ef29b33b949" }
+ethers-contract-abigen = { git = "https://github.com/gakonst/ethers-rs", rev = "949feb7a37f511b3f5a21dc23dc51ef29b33b949" }
+ethers-providers = { git = "https://github.com/gakonst/ethers-rs", rev = "949feb7a37f511b3f5a21dc23dc51ef29b33b949" }
+ethers-signers = { git = "https://github.com/gakonst/ethers-rs", rev = "949feb7a37f511b3f5a21dc23dc51ef29b33b949" }
+ethers-middleware = { git = "https://github.com/gakonst/ethers-rs", rev = "949feb7a37f511b3f5a21dc23dc51ef29b33b949" }
+ethers-etherscan = { git = "https://github.com/gakonst/ethers-rs", rev = "949feb7a37f511b3f5a21dc23dc51ef29b33b949" }
+ethers-solc = { git = "https://github.com/gakonst/ethers-rs", rev = "949feb7a37f511b3f5a21dc23dc51ef29b33b949" }
+
+foundry-compilers = { git = "https://github.com/foundry-rs/compilers" }
+foundry-block-explorers = { git = "https://github.com/foundry-rs/block-explorers" }
+
+alloy-primitives = { git = "https://github.com/alloy-rs/core", rev = "8971476b27e5c1e3f6dfefa06f46b63bde89fe80" }
+alloy-dyn-abi = { git = "https://github.com/alloy-rs/core", rev = "8971476b27e5c1e3f6dfefa06f46b63bde89fe80" }
+alloy-json-abi = { git = "https://github.com/alloy-rs/core", rev = "8971476b27e5c1e3f6dfefa06f46b63bde89fe80" }
+alloy-sol-types = { git = "https://github.com/alloy-rs/core", rev = "8971476b27e5c1e3f6dfefa06f46b63bde89fe80" }
+syn-solidity = { git = "https://github.com/alloy-rs/core", rev = "8971476b27e5c1e3f6dfefa06f46b63bde89fe80" }
