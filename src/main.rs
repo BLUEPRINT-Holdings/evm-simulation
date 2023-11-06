@@ -1,3 +1,4 @@
+use alloy_primitives::{Address, U160};
 use anyhow::Result;
 use cfmms::dex::DexVariant;
 use ethers::providers::{Middleware, Provider, Ws};
