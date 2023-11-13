@@ -16,7 +16,6 @@ use foundry_evm::{
     },
 };
 use foundry_utils::types::{ToAlloy, ToEthers};
-// use hex::FromHex;
 use std::{collections::BTreeSet, str::FromStr, sync::Arc};
 
 use crate::constants::{SIMULATOR_CODE, IMPLEMENTATION_SLOTS};
