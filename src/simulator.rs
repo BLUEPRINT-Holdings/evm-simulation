@@ -2,7 +2,7 @@ use alloy_primitives::{B256, Address};
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
 use ethers::abi;
-use ethers::types::{Transaction, H160, U256, U64,};
+use ethers::types::{Transaction, H160, U256, U64};
 use ethers_providers::Middleware;
 use foundry_evm::{
     fork::{BlockchainDb, BlockchainDbMeta, SharedBackend},
