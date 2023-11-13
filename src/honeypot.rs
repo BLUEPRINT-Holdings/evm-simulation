@@ -1,14 +1,14 @@
+use alloy_primitives::{Address, U160};
 use ethers::types::{Block, BlockId, BlockNumber, H160, H256, U256, U64};
 use ethers_providers::Middleware;
 use log::info;
-use std::{collections::HashMap, str::FromStr, sync::Arc};
+use std::ops::{Div, DivAssign};
+use std::{collections::HashMap, path::Path, str::FromStr, sync::Arc};
 
 use crate::pools::Pool;
 use crate::simulator::EvmSimulator;
 use crate::tokens::{get_implementation, get_token_info, Token};
-use crate::trace::EvmTracer;
-
-const WETH_SWAP_AMOUNT: f64 = 0.1;
+// use crate::trace::EvmTracer;
 
 #[derive(Debug, Clone)]
 pub struct SafeTokens {
@@ -40,6 +40,7 @@ pub struct HoneypotFilter<M> {
 
 impl<M: Middleware + 'static> HoneypotFilter<M> {
     pub fn new(provider: Arc<M>, block: Block<H256>) -> Self {
+        // TODO: Change owner address here
         let owner = H160::from_str("0x001a06BF8cE4afdb3f5618f6bafe35e9Fc09F187").unwrap();
         let simulator = EvmSimulator::new(provider.clone(), owner, block.number.unwrap());
         let safe_tokens = SafeTokens::new();
@@ -63,7 +64,7 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
         let owner = self.simulator.owner;
         let block_number = &self.simulator.block_number;
 
-        let tracer = EvmTracer::new(provider.clone());
+        // let tracer = EvmTracer::new(provider.clone());
 
         let chain_id = provider.get_chainid().await.unwrap();
         let nonce = self
@@ -75,49 +76,81 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
             )
             .await
             .unwrap();
-
-        for token in [
+        
+        for token in vec![
             self.safe_tokens.usdt,
             self.safe_tokens.weth,
             self.safe_tokens.usdc,
             self.safe_tokens.dai,
         ] {
-            if let std::collections::hash_map::Entry::Vacant(e) = self.safe_token_info.entry(token)
-            {
-                match tracer
-                    .find_balance_slot(
-                        token,
-                        owner,
-                        nonce,
-                        U64::from(chain_id.as_u64()),
-                        block_number.as_u64(),
-                    )
-                    .await
-                {
-                    Ok(slot) => {
-                        if slot.0 {
-                            self.balance_slots.insert(token, slot.1);
-                            let mut info = get_token_info(provider.clone(), token).await.unwrap();
-                            match get_implementation(provider.clone(), token, *block_number).await {
-                                Ok(implementation) => info.add_implementation(implementation),
-                                Err(_) => {}
-                            }
-                            e.insert(info);
-                        }
-                    }
-                    Err(_) => {}
-                }
+            // NOTE: This operation requires debug_call api which is not suppported by normal plan of both infura and alchemy
+            // if !self.safe_token_info.contains_key(&token) {
+            //     match tracer
+            //         .find_balance_slot(
+            //             token,
+            //             owner,
+            //             nonce,
+            //             U64::from(chain_id.as_u64()),
+            //             block_number.as_u64(),
+            //         )
+            //         .await
+            //     {
+            //         Ok(slot) => {
+            //             if slot.0 {
+            //                 self.balance_slots.insert(token, slot.1);
+            //                 let mut info = get_token_info(provider.clone(), token).await.unwrap();
+            //                 info!("{} ({:?}): {:?}", info.name, token, slot.1);
+            //                 match get_implementation(provider.clone(), token, *block_number).await {
+            //                     Ok(implementation) => info.add_implementation(implementation),
+            //                     Err(_) => {}
+            //                 }
+            //                 self.safe_token_info.insert(token, info);
+            //             }
+            //         }
+            //         Err(_) => {}
+            //     }
+            // }
+
+            let mut info = get_token_info(provider.clone(), token).await.unwrap();
+            self.balance_slots.insert(token, 0);
+            match get_implementation(provider.clone(), token, *block_number).await {
+                Ok(implementation) => info.add_implementation(implementation),
+                Err(_) => {}
             }
+            self.safe_token_info.insert(token, info);
         }
+
     }
 
-    pub async fn filter_tokens(
-        &mut self,
-        pools: &Vec<Pool>,
-    ) -> Result<Vec<H160>, Box<dyn std::error::Error>> {
-        self.simulator.deploy_simulator();
+    pub async fn filter_tokens(&mut self, pools: &Vec<Pool>) {
+        // load cached
+        let token_file_path = Path::new("src/.cached-tokens.csv");
+        let honeypot_file_path = Path::new("src/.cached-honeypot.csv");
 
-        let mut honeypot: Vec<H160> = vec![];
+        if token_file_path.exists() {
+            let mut reader = csv::Reader::from_path(token_file_path).unwrap();
+            for row in reader.records() {
+                let row = row.unwrap();
+                let token = Token::from(row);
+                self.token_info.insert(token.address, token);
+            }
+        }
+        info!("✔️ Loaded {:?} token info from cache", self.token_info.len());
+
+        if honeypot_file_path.exists() {
+            let mut reader = csv::Reader::from_path(honeypot_file_path).unwrap();
+            for row in reader.records() {
+                let row = row.unwrap();
+                let honeypot_address = H160::from_str(row.get(0).unwrap()).unwrap();
+                self.honeypot.insert(honeypot_address, true);
+            }
+        }
+        info!(
+            "✔️ Loaded {:?} honeypot info from cache",
+            self.honeypot.len()
+        );
+
+        self.simulator.deploy_simulator();
 
         for (idx, pool) in pools.iter().enumerate() {
             let token0_is_safe = self.safe_token_info.contains_key(&pool.token0);
@@ -142,13 +175,23 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
                     continue;
                 }
 
+                // Check if the token contract is proxy
+                // If it's proxy contract, we put that into invalid token list without any additional validations
+                // NOTE: use big endian to convert H160 bytes into U160
+                let is_proxy_contr = self.simulator.is_proxy(Address::from(U160::from_be_bytes(test_token.0)));
+                if is_proxy_contr {
+                    info!("⚠️ [{}] {} is proxy", idx, test_token);
+                    self.honeypot.insert(test_token, true);
+                    continue;
+                }    
+
                 // We take extra measures to filter out the pools with too little liquidity
                 // Using the below amount to test swaps, we know that there's enough liquidity in the pool
                 let mut amount_in_u32 = 1;
-                let mut amount_in_f64 = 1.0;
 
+                // these numbers can be changed
                 if safe_token == self.safe_tokens.weth {
-                    amount_in_f64 = WETH_SWAP_AMOUNT;
+                    amount_in_u32 = 20;
                 } else if safe_token == self.safe_tokens.usdt {
                     amount_in_u32 = 10000;
                 } else if safe_token == self.safe_tokens.usdc {
@@ -159,8 +202,10 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
 
                 // seed the simulator with some safe token balance
                 let safe_token_info = self.safe_token_info.get(&safe_token).unwrap();
-                let safe_token_slot = self.balance_slots.get(&safe_token).unwrap();
+                
+                let safe_token_slot = &0;
 
+                println!("safe token slot: {:?}", safe_token_slot);
                 self.simulator.set_token_balance(
                     self.simulator.simulator_address,
                     safe_token,
@@ -174,13 +219,9 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
                     idx, safe_token_info.symbol, test_token
                 );
 
-                let amount_in = if safe_token == self.safe_tokens.weth {
-                    U256::from((amount_in_f64 * 10f64.powi(18)) as u64)
-                } else {
-                    U256::from(amount_in_u32)
-                        .checked_mul(U256::from(10).pow(U256::from(safe_token_info.decimals)))
-                        .unwrap()
-                };
+                let amount_in = U256::from(amount_in_u32)
+                    .checked_mul(U256::from(10).pow(U256::from(safe_token_info.decimals)))
+                    .unwrap();
 
                 // Buy Test
                 let buy_output = self.simulator.v2_simulate_swap(
@@ -190,17 +231,28 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
                     test_token,
                     true,
                 );
+                println!("Buy output: {:?}", buy_output);
                 let out = match buy_output {
                     Ok(out) => out,
                     Err(e) => {
                         info!("<BUY ERROR> {:?}", e);
-                        // self.honeypot.insert(test_token, true);
-                        honeypot.push(test_token);
+                        self.honeypot.insert(test_token, true);
                         continue;
                     }
                 };
 
-                if out.0 == out.1 {
+                // Define the criteria of honeypot using tax rate
+                // NOTE: The way to define the criteria can be modified. 
+                // Currently, we just set the var here
+                let buy_tax_criteria = U256::from(5); // 5%
+
+                // // retrieve the tax rate out of the result of out_amount and simlated_out_amount
+                // // make it multiplied by 10000 to avoid float number
+                let out_ratio = out.0.checked_sub(out.1).unwrap();
+                let buy_tax_rate = out_ratio.checked_mul(U256::from(10000)).unwrap().checked_div(out.0).unwrap();
+                // println!("Buy Tax rate: {:?}", buy_tax_rate);
+
+                if buy_tax_rate.le(&buy_tax_criteria) {
                     // Sell Test
                     let amount_in = out.1;
                     let sell_output = self.simulator.v2_simulate_swap(
@@ -210,16 +262,20 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
                         safe_token,
                         true,
                     );
+                    
+                    println!("Sell output: {:?}", sell_output);
                     let out = match sell_output {
                         Ok(out) => out,
                         Err(e) => {
                             info!("<SELL ERROR> {:?}", e);
-                            // self.honeypot.insert(test_token, true);
-                            honeypot.push(test_token);
+                            self.honeypot.insert(test_token, true);
                             continue;
                         }
                     };
 
+                    // NOTE: In this simulation case, if the token has the tax for transfer, the swap function fails
+                    // and it reverts with the emission of the error.
+                    // So, we don't need to check the tax rate here 
                     if out.0 == out.1 {
                         match get_token_info(self.simulator.provider.clone(), test_token).await {
                             Ok(info) => {
@@ -233,15 +289,30 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
                             Err(_) => {}
                         }
                     } else {
-                        // self.honeypot.insert(test_token, true);
-                        continue;
+                        // TODO: Check the tax rate out of the result of out_amount and in_amount
+                        println!("Sell output: {:?}", sell_output);
+                        println!("Check the tax rate");
+                        // SO, Don't put it into honeypot directly
+                        // We set the bar to certain parcentage of the tax rate
+                        self.honeypot.insert(test_token, true);
                     }
                 } else {
-                    // self.honeypot.insert(test_token, true);
-                    continue;
+                    self.honeypot.insert(test_token, true);
                 }
             }
         }
-        Ok(honeypot)
+
+        // cache to csv files
+        let mut token_writer = csv::Writer::from_path(token_file_path).unwrap();
+        for (_, info) in &self.token_info {
+            token_writer.serialize(info.cache_row()).unwrap();
+        }
+        token_writer.flush().unwrap();
+
+        let mut honeypot_writer = csv::Writer::from_path(honeypot_file_path).unwrap();
+        for (token, _) in &self.honeypot {
+            honeypot_writer.serialize(token).unwrap();
+        }
+        honeypot_writer.flush().unwrap();
     }
 }
