@@ -18,7 +18,7 @@ use foundry_evm::{
 use foundry_utils::types::{ToAlloy, ToEthers};
 use std::{collections::BTreeSet, str::FromStr, sync::Arc};
 
-use crate::constants::{SIMULATOR_CODE, IMPLEMENTATION_SLOTS};
+use crate::constants::{SIMULATOR_CODE, IMPLEMENTATION_SLOTS, TransferredAmount, SwappedAmount};
 use crate::interfaces::{pool::V2PoolABI, simulator::SimulatorABI, token::TokenABI};
 
 #[derive(Clone)]
@@ -314,15 +314,15 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
             .insert_account_info(self.simulator_address.to_alloy(), contract_info);
     }
 
-    pub fn v2_simulate_swap(
+    pub fn buy_simulate_swap(
         &mut self,
         amount_in: U256,
         target_pool: H160,
         input_token: H160,
         output_token: H160,
         commit: bool,
-    ) -> Result<(U256, U256)> {
-        let calldata = self.simulator.v2_simulate_swap_input(
+    ) -> Result<SwappedAmount> {
+        let calldata = self.simulator.buy_simulate_swap_input(
             amount_in,
             target_pool,
             input_token,
@@ -340,7 +340,37 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         } else {
             self.staticcall(tx)?
         };
-        let out = self.simulator.v2_simulate_swap_output(value.output)?;
+        let out = self.simulator.buy_simulate_swap_output(value.output)?;
+        Ok(out)
+    }
+
+    pub fn sell_simulate_swap(
+        &mut self,
+        amount_in: U256,
+        target_pool: H160,
+        input_token: H160,
+        output_token: H160,
+        commit: bool,
+    ) -> Result<(TransferredAmount, SwappedAmount)> {
+        let calldata = self.simulator.sell_simulate_swap_input(
+            amount_in,
+            target_pool,
+            input_token,
+            output_token,
+        )?;
+        let tx = Tx {
+            caller: self.owner,
+            transact_to: self.simulator_address,
+            data: calldata.0,
+            value: U256::zero(),
+            gas_limit: 5000000,
+        };
+        let value = if commit {
+            self.call(tx)?
+        } else {
+            self.staticcall(tx)?
+        };
+        let out = self.simulator.sell_simulate_swap_output(value.output)?;
         Ok(out)
     }
 

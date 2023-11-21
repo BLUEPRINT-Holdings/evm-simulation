@@ -5,7 +5,7 @@ use ethers::types::{BlockNumber, H160, U256};
 use log::info;
 use std::{str::FromStr, sync::Arc};
 
-use evm_simulation::arbitrage::{simulate_triangular_arbitrage, TriangularArbitrage};
+// use evm_simulation::arbitrage::{simulate_triangular_arbitrage, TriangularArbitrage};
 use evm_simulation::constants::Env;
 use evm_simulation::honeypot::HoneypotFilter;
 use evm_simulation::paths::generate_triangular_paths;
@@ -52,6 +52,8 @@ async fn main() -> Result<()> {
     // TODO: change the arg to &Vec<H160> to accept token contract address directly
     honeypot_filter.validate_token(&pools).await;
 
+    /// NOTE: filter_tokens is now deprecated 
+    /// we validate by each token contract, not pool contract anymore
     honeypot_filter
         .filter_tokens(&pools[0..5000].to_vec())
         .await;
@@ -68,33 +70,33 @@ async fn main() -> Result<()> {
         .collect();
     info!("Verified pools: {:?} pools", verified_pools.len());
 
-    let usdt = H160::from_str("0xdAC17F958D2ee523a2206206994597C13D831ec7").unwrap();
-    let arb_paths = generate_triangular_paths(&verified_pools, usdt);
-
-    let owner = H160::from_str("0x001a06BF8cE4afdb3f5618f6bafe35e9Fc09F187").unwrap();
-    let amount_in = U256::from(10)
-        .checked_mul(U256::from(10).pow(U256::from(6)))
-        .unwrap();
-    let balance_slot = honeypot_filter.balance_slots.get(&usdt).unwrap();
-    let target_token = honeypot_filter.safe_token_info.get(&usdt).unwrap();
-    for path in &arb_paths {
-        let arb = TriangularArbitrage {
-            amount_in,
-            path: path.clone(),
-            balance_slot: *balance_slot,
-            target_token: target_token.clone(),
-        };
-        match simulate_triangular_arbitrage(
-            arb,
-            provider.clone(),
-            owner,
-            block.number.unwrap(),
-            None,
-        ) {
-            Ok(_profit) => {}
-            Err(_e) => {}
-        }
-    }
+    // let usdt = H160::from_str("0xdAC17F958D2ee523a2206206994597C13D831ec7").unwrap();
+    // let arb_paths = generate_triangular_paths(&verified_pools, usdt);
+// 
+    // let owner = H160::from_str("0x001a06BF8cE4afdb3f5618f6bafe35e9Fc09F187").unwrap();
+    // let amount_in = U256::from(10)
+        // .checked_mul(U256::from(10).pow(U256::from(6)))
+        // .unwrap();
+    // let balance_slot = honeypot_filter.balance_slots.get(&usdt).unwrap();
+    // let target_token = honeypot_filter.safe_token_info.get(&usdt).unwrap();
+    // for path in &arb_paths {
+        // let arb = TriangularArbitrage {
+            // amount_in,
+            // path: path.clone(),
+            // balance_slot: *balance_slot,
+            // target_token: target_token.clone(),
+        // };
+        // match simulate_triangular_arbitrage(
+            // arb,
+            // provider.clone(),
+            // owner,
+            // block.number.unwrap(),
+            // None,
+        // ) {
+            // Ok(_profit) => {}
+            // Err(_e) => {}
+        // }
+    // }
 
     // let (event_sender, _): (Sender<Event>, _) = broadcast::channel(512);
 

@@ -4,6 +4,7 @@ use ethers_providers::Middleware;
 use log::info;
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
+use crate::constants::SwappedAmount;
 use crate::pools::Pool;
 use crate::simulator::EvmSimulator;
 use crate::tokens::{get_implementation, get_token_info, Token};
@@ -188,7 +189,6 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
             // TODO: Make a validation against gas cost
             // let gas_cost = out.1;
 
-            
             let send_transfered_amount = out.0.0;
             let buy_tax_criteria = U256::from(5); // 5%
             let reducted_out_amount = amount.checked_sub(send_transfered_amount).unwrap();
@@ -215,6 +215,7 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
         };
     }
 
+    /// NOTE: filter_tokens is deprecated
     pub async fn filter_tokens(&mut self, pools: &Vec<Pool>) {
         self.simulator.deploy_simulator();
 
@@ -244,12 +245,12 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
                 // Check if the token contract is proxy
                 // If it's proxy contract, we put that into invalid token list without any additional validations
                 // NOTE: use big endian to convert H160 bytes into U160
-                let is_proxy_contr = self.simulator.is_proxy(Address::from(U160::from_be_bytes(test_token.0)));
-                if is_proxy_contr {
-                    info!("⚠️ [{}] {} is proxy", idx, test_token);
-                    self.honeypot.insert(test_token, true);
-                    continue;
-                }    
+                // let is_proxy_contr = self.simulator.is_proxy(Address::from(U160::from_be_bytes(test_token.0)));
+                // if is_proxy_contr {
+                    // info!("⚠️ [{}] {} is proxy", idx, test_token);
+                    // self.honeypot.insert(test_token, true);
+                    // continue;
+                // }    
 
                 // We take extra measures to filter out the pools with too little liquidity
                 // Using the below amount to test swaps, we know that there's enough liquidity in the pool
@@ -293,7 +294,7 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
                 };
 
                 // Buy Test
-                let buy_output = self.simulator.v2_simulate_swap(
+                let buy_output = self.simulator.buy_simulate_swap(
                     amount_in,
                     pool.address,
                     safe_token,
@@ -309,61 +310,51 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
                     }
                 };
 
+                /// TODO: modify logic
+                /// By comparing transfer tax rate to the past one, renew it if it's updated 
+                // Sell Test
+                let amount_in = out;
+                let sell_output = self.simulator.sell_simulate_swap(
+                    amount_in,
+                    pool.address,
+                    test_token,
+                    safe_token,
+                    true,
+                );
+                let out = match sell_output {
+                    Ok(out) => out,
+                    Err(e) => {
+                        info!("<SELL ERROR> {:?}", e);
+                        self.honeypot.insert(test_token, true);
+                        continue;
+                    }
+                };
+
                 let out_ratio = out.0.checked_sub(out.1).unwrap();
-                let buy_tax_rate = out_ratio
+                let sell_tax_rate = out_ratio
                     .checked_mul(U256::from(10000))
                     .unwrap()
                     .checked_div(out.0)
                     .unwrap();
-                let buy_tax_rate = buy_tax_rate.as_u64() as f64 / 10000.0;
-                self.buy_tax = buy_tax_rate;
+                let sell_tax_rate = sell_tax_rate.as_u64() as f64 / 10000.0;
+                self.sell_tax = sell_tax_rate;
 
-                if buy_tax_rate < TAX_CRITERIA {
-                    // Sell Test
-                    let amount_in = out.1;
-                    let sell_output = self.simulator.v2_simulate_swap(
-                        amount_in,
-                        pool.address,
-                        test_token,
-                        safe_token,
-                        true,
-                    );
-                    let out = match sell_output {
-                        Ok(out) => out,
-                        Err(e) => {
-                            info!("<SELL ERROR> {:?}", e);
-                            self.honeypot.insert(test_token, true);
-                            continue;
+                if sell_tax_rate < TAX_CRITERIA {
+                    match get_token_info(self.simulator.provider.clone(), test_token).await {
+                        Ok(info) => {
+                            info!(
+                                "Added safe token info ({}). Total: {:?} tokens",
+                                info.symbol,
+                                self.token_info.len()
+                            );
+                            self.token_info.insert(test_token, info);
                         }
-                    };
-
-                    let out_ratio = out.0.checked_sub(out.1).unwrap();
-                    let sell_tax_rate = out_ratio
-                        .checked_mul(U256::from(10000))
-                        .unwrap()
-                        .checked_div(out.0)
-                        .unwrap();
-                    let sell_tax_rate = sell_tax_rate.as_u64() as f64 / 10000.0;
-                    self.sell_tax = sell_tax_rate;
-
-                    if sell_tax_rate < TAX_CRITERIA {
-                        match get_token_info(self.simulator.provider.clone(), test_token).await {
-                            Ok(info) => {
-                                info!(
-                                    "Added safe token info ({}). Total: {:?} tokens",
-                                    info.symbol,
-                                    self.token_info.len()
-                                );
-                                self.token_info.insert(test_token, info);
-                            }
-                            Err(_) => {}
-                        }
-                    } else {
-                        self.honeypot.insert(test_token, true);
+                        Err(_) => {}
                     }
                 } else {
                     self.honeypot.insert(test_token, true);
                 }
+                
             }
         }
     }

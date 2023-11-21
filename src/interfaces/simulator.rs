@@ -4,6 +4,8 @@ use ethers::abi::parse_abi;
 use ethers::prelude::BaseContract;
 use ethers::types::{Bytes, H160, U256};
 
+use crate::constants::{TransferredAmount, SwappedAmount};
+
 #[derive(Clone)]
 pub struct SimulatorABI {
     pub abi: BaseContract,
@@ -13,7 +15,8 @@ impl SimulatorABI {
     pub fn new() -> Self {
         let abi = BaseContract::from(
             parse_abi(&[
-                "function v2SimulateSwap(uint256,address,address,address) external returns (uint256, uint256)",
+                "function buySimulateSwap(uint256,address,address,address) external returns (uint256)",
+                "function sellSimulateSwap(uint256,address,address,address) external returns (uint256, uint256)",
                 "function getAmountOut(uint256,uint256,uint256) external returns (uint256)",
                 "function simpleTransfer(uint256,address) external returns (uint256, uint256)",
             ]).unwrap()
@@ -21,7 +24,7 @@ impl SimulatorABI {
         Self { abi }
     }
 
-    pub fn v2_simulate_swap_input(
+    pub fn buy_simulate_swap_input(
         &self,
         amount_in: U256,
         target_pool: H160,
@@ -29,14 +32,33 @@ impl SimulatorABI {
         output_token: H160,
     ) -> Result<Bytes> {
         let calldata = self.abi.encode(
-            "v2SimulateSwap",
+            "buySimulateSwap",
             (amount_in, target_pool, input_token, output_token),
         )?;
         Ok(calldata)
     }
 
-    pub fn v2_simulate_swap_output(&self, output: OutputBytes) -> Result<(U256, U256)> {
-        let out = self.abi.decode_output("v2SimulateSwap", output)?;
+    pub fn buy_simulate_swap_output(&self, output: OutputBytes) -> Result<SwappedAmount> {
+        let out = self.abi.decode_output("buySimulateSwap", output)?;
+        Ok(out)
+    }
+
+    pub fn sell_simulate_swap_input(
+        &self,
+        amount_in: U256,
+        target_pool: H160,
+        input_token: H160,
+        output_token: H160,
+    ) -> Result<Bytes> {
+        let calldata = self.abi.encode(
+            "sellSimulateSwap",
+            (amount_in, target_pool, input_token, output_token),
+        )?;
+        Ok(calldata)
+    }
+
+    pub fn sell_simulate_swap_output(&self, output: OutputBytes) -> Result<(TransferredAmount, SwappedAmount)> {
+        let out = self.abi.decode_output("sellSimulateSwap", output)?;
         Ok(out)
     }
 

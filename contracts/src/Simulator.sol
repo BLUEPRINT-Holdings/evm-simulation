@@ -26,23 +26,18 @@ contract Simulator {
         simulatorBalance = IERC20(sendingToken).balanceOf(msg.sender);
     }
 
-    function v2SimulateSwap(
+    // Assuming that this is used to swap tokens ETH for random ERC20 
+    function buySimulateSwap(
         uint256 amountIn,
         address targetPair,
         address inputToken,
         address outputToken
-    ) external returns (uint256 amountOut, uint256 realAfterBalance) {
-        // 1. Check if you can transfer the token
-        // Some honeypot tokens won't allow you to transfer tokens
+    ) external returns (uint256 swappedAmount) {
         IERC20(inputToken).safeTransfer(targetPair, amountIn);
-
         uint256 reserveIn;
         uint256 reserveOut;
-
         {
-            (uint256 reserve0, uint256 reserve1, ) = IUniswapV2Pair(targetPair)
-                .getReserves();
-
+            (uint256 reserve0, uint256 reserve1, ) = IUniswapV2Pair(targetPair).getReserves();
             if (inputToken < outputToken) {
                 reserveIn = reserve0;
                 reserveOut = reserve1;
@@ -53,16 +48,12 @@ contract Simulator {
         }
 
         // 2. Calculate the amount out you are supposed to get if the token isn't taxed
-        uint256 actualAmountIn = IERC20(inputToken).balanceOf(targetPair) -
-            reserveIn;
-        amountOut = this.getAmountOut(actualAmountIn, reserveIn, reserveOut);
-
+        uint256 amountOut = this.getAmountOut(amountIn, reserveIn, reserveOut);
         // Take the tax into account
         amountOut = (amountOut * (100 - TAX_CRITERIA)) / 100;
 
         // If the token is taxed, you won't receive amountOut back, and the swap will revert
         uint256 outBalanceBefore = IERC20(outputToken).balanceOf(address(this));
-
         (uint256 amount0Out, uint256 amount1Out) = inputToken < outputToken
             ? (uint256(0), amountOut)
             : (amountOut, uint256(0));
@@ -72,11 +63,49 @@ contract Simulator {
             address(this),
             new bytes(0)
         );
-
         // 3. Check the real balance of outputToken after the swap
-        realAfterBalance =
-            IERC20(outputToken).balanceOf(address(this)) -
-            outBalanceBefore;
+        swappedAmount = IERC20(outputToken).balanceOf(address(this)) - outBalanceBefore;
+    }
+
+    // Assuming that this function is used to swap random ERC20 token for ETH
+    function sellSimulateSwap(
+        uint256 amountIn,
+        address targetPair,
+        address inputToken,
+        address outputToken
+    ) external returns (uint256 transferredAmount, uint256 swappedAmount) {
+        IERC20(inputToken).safeTransfer(targetPair, amountIn);
+        uint256 reserveIn;
+        uint256 reserveOut;
+
+        {
+            (uint256 reserve0, uint256 reserve1, ) = IUniswapV2Pair(targetPair).getReserves();
+            if (inputToken < outputToken) {
+                reserveIn = reserve0;
+                reserveOut = reserve1;
+            } else {
+                reserveIn = reserve1;
+                reserveOut = reserve0;
+            }
+        }
+        uint256 actualAmountIn = IERC20(inputToken).balanceOf(targetPair) - reserveIn;
+        require((actualAmountIn * 100)/ amountIn > 90, "Tax Alert: Invalid tax rate");
+        transferredAmount = actualAmountIn;
+        uint256 amountOut = this.getAmountOut(actualAmountIn, reserveIn, reserveOut);
+
+        // If the token is taxed, you won't receive amountOut back, and the swap will revert
+        uint256 outBalanceBefore = IERC20(outputToken).balanceOf(address(this));
+        (uint256 amount0Out, uint256 amount1Out) = inputToken < outputToken
+            ? (uint256(0), amountOut)
+            : (amountOut, uint256(0));
+        IUniswapV2Pair(targetPair).swap(
+            amount0Out,
+            amount1Out,
+            address(this),
+            new bytes(0)
+        );
+        // 3. Check the real balance of outputToken after the swap
+        swappedAmount = IERC20(outputToken).balanceOf(address(this)) - outBalanceBefore;
     }
 
     function getAmountOut(
