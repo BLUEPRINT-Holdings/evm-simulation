@@ -2030,7 +2030,6 @@ dependencies = [
  "anvil",
  "anyhow",
  "async-trait",
- "bitflags 2.4.1",
  "bytes",
  "cfmms",
  "chrono",
@@ -2052,10 +2051,8 @@ dependencies = [
  "indoc",
  "itertools 0.11.0",
  "log",
- "ruint",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
  "tokio-stream",
 ]

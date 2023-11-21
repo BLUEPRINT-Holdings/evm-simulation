@@ -15,7 +15,6 @@ anyhow = "1.0.70"
 serde = "1.0.145"
 serde_json = "1.0"
 itertools = "0.11.0"
-thiserror = "1.0.50"
 
 cfmms = "*"
 ethers-flashbots = { git = "https://github.com/onbjerg/ethers-flashbots" }
@@ -40,8 +39,6 @@ indoc = "2"
 fern = { version = "0.6.2", features = ["colored"] }
 chrono = "0.4.23"
 csv = "1.2.2"
-ruint = "1.11.0"
-bitflags = "2.4.1"
 
 [patch.crates-io]
 ethers = { git = "https://github.com/gakonst/ethers-rs", rev = "4e09be88730045dd6c4ed8a4e198a9956931e7bd" }
