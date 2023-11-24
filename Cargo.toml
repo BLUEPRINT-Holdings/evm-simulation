@@ -52,13 +52,13 @@ ethers-middleware = { git = "https://github.com/gakonst/ethers-rs", rev = "4e09b
 ethers-etherscan = { git = "https://github.com/gakonst/ethers-rs", rev = "4e09be88730045dd6c4ed8a4e198a9956931e7bd" }
 ethers-solc = { git = "https://github.com/gakonst/ethers-rs", rev = "4e09be88730045dd6c4ed8a4e198a9956931e7bd" }
 
-alloy-dyn-abi = { git = "https://github.com/alloy-rs/core/", rev = "389e256e9f82c797dd0ed642348b7b8d2e0bcf90" }
-alloy-json-abi = { git = "https://github.com/alloy-rs/core/", rev = "389e256e9f82c797dd0ed642348b7b8d2e0bcf90" }
-alloy-primitives = { git = "https://github.com/alloy-rs/core/", rev = "389e256e9f82c797dd0ed642348b7b8d2e0bcf90" }
-alloy-sol-macro = { git = "https://github.com/alloy-rs/core/", rev = "389e256e9f82c797dd0ed642348b7b8d2e0bcf90" }
-alloy-sol-types = { git = "https://github.com/alloy-rs/core/", rev = "389e256e9f82c797dd0ed642348b7b8d2e0bcf90" }
-alloy-sol-type-parser = { git = "https://github.com/alloy-rs/core/", rev = "389e256e9f82c797dd0ed642348b7b8d2e0bcf90" }
-syn-solidity = { git = "https://github.com/alloy-rs/core/", rev = "389e256e9f82c797dd0ed642348b7b8d2e0bcf90" }
+alloy-dyn-abi = { git = "https://github.com/alloy-rs/core/", rev = "9593455024915d7017b0c79ae16d4481083e445a" }
+alloy-json-abi = { git = "https://github.com/alloy-rs/core/", rev = "9593455024915d7017b0c79ae16d4481083e445a" }
+alloy-primitives = { git = "https://github.com/alloy-rs/core/", rev = "9593455024915d7017b0c79ae16d4481083e445a" }
+alloy-sol-macro = { git = "https://github.com/alloy-rs/core/", rev = "9593455024915d7017b0c79ae16d4481083e445a" }
+alloy-sol-types = { git = "https://github.com/alloy-rs/core/", rev = "9593455024915d7017b0c79ae16d4481083e445a" }
+alloy-sol-type-parser = { git = "https://github.com/alloy-rs/core/", rev = "9593455024915d7017b0c79ae16d4481083e445a" }
+syn-solidity = { git = "https://github.com/alloy-rs/core/", rev = "9593455024915d7017b0c79ae16d4481083e445a" }
 
 foundry-compilers = { git = "https://github.com/foundry-rs/compilers", rev = "816184ad7a47996f3382dc73dc52566fb12fb3df" }
 
