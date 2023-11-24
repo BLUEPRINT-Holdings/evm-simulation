@@ -5,8 +5,8 @@ use ethers::{
     types::transaction::eip2930::AccessList,
 };
 use ethers_providers::Middleware;
-use foundry_common::types::ToEthers;
 use foundry_evm::revm::primitives::keccak256;
+use foundry_utils::types::ToEthers;
 use std::sync::Arc;
 
 pub struct EvmTracer<M> {

@@ -6,8 +6,8 @@ use ethers::{
     providers::{Middleware, Provider, Ws},
     types::{BlockId, BlockNumber, H160, U256, U64},
 };
-use foundry_common::types::ToEthers;
 use foundry_evm::revm::primitives::keccak256;
+use foundry_utils::types::ToEthers;
 use log::info;
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 use tokio::sync::broadcast::Sender;
