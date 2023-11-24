@@ -1,9 +1,10 @@
-use alloy_primitives::{B256, Address};
+use alloy_primitives::{Address, B256};
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
 use ethers::abi;
 use ethers::types::{Transaction, H160, U256, U64};
 use ethers_providers::Middleware;
+use foundry_common::types::{ToAlloy, ToEthers};
 use foundry_evm::{
     fork::{BlockchainDb, BlockchainDbMeta, SharedBackend},
     revm::{
@@ -15,10 +16,9 @@ use foundry_evm::{
         EVM,
     },
 };
-use foundry_utils::types::{ToAlloy, ToEthers};
 use std::{collections::BTreeSet, str::FromStr, sync::Arc};
 
-use crate::constants::{SIMULATOR_CODE, IMPLEMENTATION_SLOTS};
+use crate::constants::{IMPLEMENTATION_SLOTS, SIMULATOR_CODE};
 use crate::interfaces::{pool::V2PoolABI, simulator::SimulatorABI, token::TokenABI};
 
 #[derive(Clone)]
@@ -364,25 +364,22 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         Ok(out)
     }
 
-    pub fn is_proxy(
-        &mut self,
-        token: Address,
-    ) -> bool {
+    pub fn is_proxy(&mut self, token: Address) -> bool {
         let mut is_proxy = false;
-               
+
         for slot in IMPLEMENTATION_SLOTS.iter() {
             let impl_addr = self
-            
                 .evm
                 .db
                 .as_mut()
                 .unwrap()
-                .storage(token, slot.to_alloy()).unwrap();
+                .storage(token, slot.to_alloy())
+                .unwrap();
             if impl_addr.count_zeros() != 256 {
                 is_proxy = true;
             }
         }
-    
+
         is_proxy
     }
 }
