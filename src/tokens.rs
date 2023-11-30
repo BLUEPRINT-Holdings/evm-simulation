@@ -6,7 +6,7 @@ use ethers_core::types::{BlockId, BlockNumber, TxHash, H160, U256};
 use std::{str::FromStr, sync::Arc};
 use tokio::task::JoinSet;
 
-use crate::constants::{ZERO_ADDRESS, IMPLEMENTATION_SLOTS};
+use crate::constants::{ZERO_ADDRESS, IMPLEMENTATION_SLOTS, ERC20_INTERFACES};
 
 #[derive(Debug, Clone)]
 pub struct Token {
@@ -121,3 +121,18 @@ pub async fn get_token_info<M: Middleware + 'static>(
 
     Ok(token_info)
 }
+
+pub fn is_erc20_contract_creation(
+    tx_input: Bytes,
+) -> bool {
+    let hex_input = hex::encode(tx_input);
+
+    // Assume that every basic interfaces of erc20 is satisfied if it's erc20 contract
+    for interface in ERC20_INTERFACES.iter() {
+        if !hex_input.contains(interface) {
+            return false;
+        }
+    }
+
+    true
+} 

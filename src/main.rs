@@ -30,6 +30,22 @@ async fn main() -> Result<()> {
         .unwrap()
         .unwrap();
 
+    // Example of how you detect the erc20 contract creation
+    // First, get the tx data from mempool or established block
+    // let tx = provider
+        // .get_transaction(H256::from_str("0xffd087d96dd52b0f6c399233bae1c1a842459a53a0a5883ebf6054f06f6110b3").unwrap())
+        // .await
+        // .unwrap()
+        // .unwrap();
+    
+    // Second, call is_erc20_contract_creation with the input data of tx
+    // if is_erc20_contract_creation(tx.input) {
+        // If it returns true, retrieve the contract address from address and nounce
+        // calculate_contract_address(tx.from, tx.nonce));
+
+        // And, record in a list of a property in struct or write out in a file
+    // }
+
     let factories = vec![
         (
             // Uniswap v2

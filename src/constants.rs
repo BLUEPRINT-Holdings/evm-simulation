@@ -53,3 +53,20 @@ pub static IMPLEMENTATION_SLOTS: Lazy<Vec<U256>> = Lazy::new(|| {vec![
     U256::from(OPEN_ZEPPELIN_IMPLEMENTATION_SLOT),
     U256::from(EIP_1882_LOGIC_SLOT),
 ]});
+
+// ERC20 contract basci interfaces
+pub static TOTAL_SUPPLY: &str = "18160ddd";
+pub static BALANCE_OF: &str = "70a08231";
+pub static ALLOWANCE: &str = "dd62ed3e";
+pub static TRANSFER: &str = "a9059cbb";
+pub static APPROVE: &str = "095ea7b3";
+pub static TRANSFER_FROM: &str = "23b872dd";
+
+pub static ERC20_INTERFACES: Lazy<Vec<&str>> = Lazy::new(|| {vec![
+    TOTAL_SUPPLY,
+    BALANCE_OF,
+    ALLOWANCE,
+    TRANSFER,
+    APPROVE,
+    TRANSFER_FROM,
+]});
