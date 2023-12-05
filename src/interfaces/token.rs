@@ -48,7 +48,7 @@ impl TokenABI {
     }
 
     pub fn transfer_output(&self, output: OutputBytes) -> Result<bool> {
-        let out = self.abi.decode("transfer", output)?;
+        let out = self.abi.decode_output("transfer", output)?;
         Ok(out)
     }
 }

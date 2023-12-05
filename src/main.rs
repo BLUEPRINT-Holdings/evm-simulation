@@ -1,9 +1,13 @@
+use alloy_primitives::address;
 use anyhow::Result;
 use cfmms::dex::DexVariant;
 use ethers::providers::{Middleware, Provider, Ws};
 use ethers::types::{BlockNumber, H160, U256};
+use ethers_core::types::BlockId;
+use evm_simulation::trace::EvmTracer;
 use log::info;
 use std::{str::FromStr, sync::Arc};
+use url::Url;
 
 // use evm_simulation::arbitrage::{simulate_triangular_arbitrage, TriangularArbitrage};
 use evm_simulation::constants::Env;
@@ -21,7 +25,11 @@ async fn main() -> Result<()> {
     info!("[⚡️🦀⚡️ Starting EVM simulation]");
 
     let env = Env::new();
-    let ws = Ws::connect(&env.wss_url).await.unwrap();
+    // let ws = Ws::connect(&env.wss_url).await.unwrap();
+    let wss_url = format!("{}?key={}", &env.wss_url, &env.api_key);
+    let wss_url = Url::parse(&wss_url).expect("Failed to parse WSS URL");
+    let ws = Ws::connect(wss_url).await.unwrap();
+
     let provider = Arc::new(Provider::new(ws));
 
     let block = provider
@@ -32,6 +40,7 @@ async fn main() -> Result<()> {
 
     let factories = vec![
         (
+         
             // Uniswap v2
             "0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f",
             DexVariant::UniswapV2,
@@ -48,6 +57,40 @@ async fn main() -> Result<()> {
 
     let mut honeypot_filter = HoneypotFilter::new(provider.clone(), block.clone());
     honeypot_filter.setup().await;
+
+    let addr_str = "b74eE5F1f20De8B7F3f14deDd2F63135B054Ce8b ";// "9813037ee2218799597d83D4a5B6F3b6778218d9"; // evil: 8c66560b19505e6aE79F09ffb1DBBb70F067E39d
+    
+    let token_contract_addr = address!("b74eE5F1f20De8B7F3f14deDd2F63135B054Ce8b ");
+    let token_contract_h160 = H160::from_str(addr_str).unwrap();
+
+    let owner = honeypot_filter.simulator.check_owner(token_contract_h160);
+    println!("owner: {:?}", owner);
+    // NOTE: the usage of check_admin function below
+    // If the contract doesn't have admin address at this moment, then the function returns (false, zero_address)
+    // If exists, it returns (true, admin_address)
+    let admin = honeypot_filter.simulator.check_admin(token_contract_addr).unwrap();
+    println!("admin res: {:?}", admin);
+
+    let block_number = &honeypot_filter.simulator.block_number;
+    let traceer = EvmTracer::new(provider.to_owned());
+    let nonce = provider
+        .get_transaction_count(
+            admin.1,
+            Some(BlockId::Number(BlockNumber::Number(honeypot_filter.simulator.block_number))),
+        )
+        .await
+        .unwrap();
+    let evil_impl = traceer
+        .check_possible_evil_implementation(
+            token_contract_h160,
+            admin.1,
+            honeypot_filter.simulator.owner,
+            nonce, 
+            env.chain_id.into(),
+            honeypot_filter.simulator.block_number.as_u64(),
+        ).await;
+
+        println!("eviil impl res: {:?}", evil_impl);
 
     // TODO: change the arg to &Vec<H160> to accept token contract address directly
     honeypot_filter.validate_token(&pools).await;

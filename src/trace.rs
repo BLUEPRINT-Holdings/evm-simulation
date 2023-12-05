@@ -110,6 +110,78 @@ impl<M: Middleware + 'static> EvmTracer<M> {
         }
     }
 
+    pub async fn check_possible_evil_implementation(
+        &self,
+        token: H160,
+        sender: H160,
+        recipient: H160,
+        nonce: U256,
+        chain_id: U64,
+        block_number: u64,
+    ) -> Result<bool> {
+       // A brute force way of finding the storage slot value of an ERC-20 token
+       // Calling transfer and tracing the call using "debug_traceCall" will give us access to the
+       // storage slot of "mapping(address => bool) type". But, unfortunately, evm storage mechanism doesn't 
+       // support the direct detection of the above data type because each slot comsists both of key data type 
+       // and the index if it's mapping. It means we cannot tell if the slot is mapping(address => bool) or 
+       // mapping(address => uint256), which is used for balance. So, assuming the ERC20 contract
+       // fundamentally has only mapping(address => uint256) as of the type of data has address as a key, 
+       // we assert the existence of mapping(address => bool) slot by counting the number of slots have the type 
+       // of data has address as a key. 
+       let erc20_contract = BaseContract::from(
+            parse_abi(&["function transfer(address,uint256) external returns (bool)"]).unwrap(),
+        );
+        let calldata = erc20_contract.encode("transfer", (recipient, U256::one())).unwrap();
+        let tx = Eip1559TransactionRequest {
+            to: Some(NameOrAddress::Address(token)),
+            from: Some(sender),
+            data: Some(calldata.0.into()),
+            value: Some(U256::zero()),
+            chain_id: Some(chain_id),
+            max_priority_fee_per_gas: None,
+            max_fee_per_gas: None,
+            gas: None,
+            nonce: Some(nonce),
+            access_list: AccessList::default(),
+        };
+        let trace = self.get_state_diff(tx, block_number).await.unwrap();
+        match trace {
+            GethTrace::Known(known) => match known {
+                GethTraceFrame::PreStateTracer(prestate) => match prestate {
+                    PreStateFrame::Default(prestate_mode) => {
+                        let token_info =
+                            prestate_mode.0.get(&token).ok_or(anyhow!("no token key"))?;
+                        let touched_storage = token_info
+                            .storage
+                            .clone()
+                            .ok_or(anyhow!("no storage values"))?;
+                        let mut count = 0;
+                        for i in 0..20 {
+                            let slot = keccak256(&abi::encode(&[
+                                abi::Token::Address(sender),
+                                abi::Token::Uint(U256::from(i)),
+                            ]));
+                            match touched_storage.get(&slot.to_ethers()) {
+                                Some(_) => {
+                                    if count == 1{ 
+                                        return Ok(true);
+                                    }
+                                    count += 1;
+                                }
+                                None => {}
+                            }
+                        }
+                        Ok(false)
+                    }
+                    _ => Ok(false),
+                },
+                _ => Ok(false),
+            },
+            _ => Ok(false),
+        }
+    }
+
+
     pub async fn find_v2_reserves_slot(
         &self,
         pool: H160,

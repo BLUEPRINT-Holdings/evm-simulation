@@ -1,4 +1,4 @@
-use alloy_primitives::{B256, Address};
+use alloy_primitives::{B256, Address, TxHash, U256 as aU256};
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
 use ethers::abi;
@@ -19,6 +19,7 @@ use foundry_utils::types::{ToAlloy, ToEthers};
 use std::{collections::BTreeSet, str::FromStr, sync::Arc};
 
 use crate::constants::{SIMULATOR_CODE, IMPLEMENTATION_SLOTS, TransferredAmount, SwappedAmount};
+use crate::interfaces::ownable::OwnableABI;
 use crate::interfaces::{pool::V2PoolABI, simulator::SimulatorABI, token::TokenABI};
 
 #[derive(Clone)]
@@ -31,6 +32,7 @@ pub struct EvmSimulator<M> {
     pub token: TokenABI,
     pub v2_pool: V2PoolABI,
     pub simulator: SimulatorABI,
+    pub ownable: OwnableABI,
 
     pub simulator_address: H160,
 }
@@ -85,6 +87,7 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
             token: TokenABI::new(),
             v2_pool: V2PoolABI::new(),
             simulator: SimulatorABI::new(),
+            ownable: OwnableABI::new(),
 
             simulator_address: H160::from_str("0x4E17607Fb72C01C280d7b5c41Ba9A2109D74a32C")
                 .unwrap(),
@@ -401,7 +404,7 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         let mut is_proxy = false;
                
         for slot in IMPLEMENTATION_SLOTS.iter() {
-            let impl_addr = self
+            let impl_addr: alloy_primitives::Uint<256, 4> = self
             
                 .evm
                 .db
@@ -498,5 +501,64 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
 
         let out = self.simulator.simple_transfer_output(value.output)?;
         Ok((out, value.gas_used))
+    }
+
+    // Check the existence of an admin address for ERC20 contract.
+    // The reason why it is limited to ERC20 contract is because we assume the specific storage slot management.
+    // In ERC20, the standard implementation and the plugin parts are highly limited. Hence, we assume if the ERC20 contract
+    // has address type storage slot in the contract, it would be the address who can do administrative tasks as an admin.
+    pub fn check_admin(
+        &mut self,
+        token_contract: Address,
+    ) -> Result<(bool, H160)> {
+        for i in 0..15 {
+            let res = self
+            .evm
+            .db
+            .as_mut()
+            .unwrap()
+            .storage(token_contract, aU256::from(i))?;
+
+            // Convert Uint<256, 4> to big-endian bytes and take the values from 12 to the last
+            let mut be_vec = res.as_le_slice().to_vec();
+            be_vec.reverse();
+            println!("vec: {:?}", be_vec);
+            if be_vec[..12].iter().filter(|x| **x == 0).count() != 12 {
+                continue;
+            }
+
+            let owner = H160::from_slice(&&be_vec[12..]);
+            if !owner.is_zero() {
+                return Ok((true, owner))
+            }
+        }   
+
+        Ok((false, H160::zero()))
+    }
+
+    // It calls owner() view function in the format of Ownable interface from OpenZeppelin 
+    // You can interpret the result as follows:
+    // If the result is Address, but not zero, then, it is the address stored as owner for Ownable part
+    // It it's Zero Address, it means the former owner called renounce to throw away the ownership 
+    // If the result if Err and the execution is reverted, the token_contract doesn't inherit the Ownable
+    pub fn check_owner(
+        &mut self,
+        token_contract: H160,
+    ) -> Result<H160> {
+        let calldata = self
+            .ownable
+            .owner_input()?;
+
+        let tx = Tx {
+            caller: self.owner,
+            transact_to: token_contract,
+            data: calldata.0,
+            value: U256::zero(),
+            gas_limit: 5000000,
+        };
+
+        let value = self.staticcall(tx)?;
+        let out = self.ownable.owner_output(value.output)?;
+        Ok(out)
     }
 }
