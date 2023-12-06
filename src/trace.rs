@@ -117,6 +117,7 @@ impl<M: Middleware + 'static> EvmTracer<M> {
         &self,
         token: H160,
         sender: Option<H160>,
+        sender_balance: bool,
         recipient: Option<H160>,
         owner: Option<H160>, // Optional, could be None if there's none.
         nonce: Option<U256>,
@@ -191,7 +192,12 @@ impl<M: Middleware + 'static> EvmTracer<M> {
                                 }
                             }
                         }
-                        let possible_evil_impl = simple_count.ge(&2) || owner_key_storage;
+                        let possible_evil_impl: bool;
+                        if sender_balance {
+                            possible_evil_impl = simple_count.ge(&2) || owner_key_storage;
+                        } else {
+                            possible_evil_impl = simple_count.ge(&1) || owner_key_storage;
+                        }
                         return Ok((possible_evil_impl, simple_count));
                     }
                     _ => Ok((false, 0)),
