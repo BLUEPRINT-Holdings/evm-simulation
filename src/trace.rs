@@ -9,7 +9,7 @@ use foundry_evm::revm::primitives::keccak256;
 use foundry_utils::types::ToEthers;
 use std::sync::Arc;
 
-use crate::constants::{DEFAULT_SENDER, DEFAULT_CHAIN_ID, DEFAULT_RECIPIENT};
+use crate::constants::{DEFAULT_CHAIN_ID, DEFAULT_RECIPIENT, DEFAULT_SENDER};
 
 pub struct EvmTracer<M> {
     provider: Arc<M>,

@@ -8,8 +8,10 @@ use std::str::FromStr;
 pub static WEI: Lazy<U256> = Lazy::new(|| U256::from(10).pow(U256::from(18)));
 pub static GWEI: Lazy<U256> = Lazy::new(|| U256::from(10).pow(U256::from(9)));
 
-pub static DEFAULT_SENDER: Lazy<H160> = Lazy::new(|| H160::from_str("0x001a06BF8cE4afdb3f5618f6bafe35e9Fc09F187").unwrap());
-pub static DEFAULT_RECIPIENT: Lazy<H160> = Lazy::new(|| H160::from_str("0x4E17607Fb72C01C280d7b5c41Ba9A2109D74a32C").unwrap());
+pub static DEFAULT_SENDER: Lazy<H160> =
+    Lazy::new(|| H160::from_str("0x001a06BF8cE4afdb3f5618f6bafe35e9Fc09F187").unwrap());
+pub static DEFAULT_RECIPIENT: Lazy<H160> =
+    Lazy::new(|| H160::from_str("0x4E17607Fb72C01C280d7b5c41Ba9A2109D74a32C").unwrap());
 
 pub static DEFAULT_CHAIN_ID: U64 = U64::one();
 pub static ZERO_ADDRESS: Lazy<Address> =
