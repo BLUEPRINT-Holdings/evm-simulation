@@ -20,6 +20,8 @@ use std::{collections::BTreeSet, str::FromStr, sync::Arc};
 
 use crate::constants::{SIMULATOR_CODE, IMPLEMENTATION_SLOTS};
 use crate::interfaces::{pool::V2PoolABI, simulator::SimulatorABI, token::TokenABI};
+use crate::tokens::get_token_info;
+use crate::trace::EvmTracer;
 
 #[derive(Clone)]
 pub struct EvmSimulator<M> {
@@ -211,6 +213,60 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
 
     pub fn call(&mut self, tx: Tx) -> Result<TxResult> {
         self._call(tx, true)
+    }
+
+    pub async fn transfer_token(&mut self, token: H160) -> Result<(U256, U256)> {
+        self.deploy_simulator();
+
+        let amount_u32 = 10000;
+        let token_info = get_token_info(self.provider.clone(), token).await.unwrap();
+        let amount = U256::from(amount_u32)
+            .checked_mul(U256::from(10).pow(U256::from(token_info.decimals)))
+            .unwrap();
+        
+        let tracer = EvmTracer::new(self.provider.clone());
+        let chain_id = self.provider.get_chainid().await.unwrap();
+        let token_slot = tracer.find_balance_slot(
+            token,
+            self.owner,
+            U256::zero(),
+            U64::from(chain_id.as_u64()),
+            self.block_number.as_u64(),
+        ).await.unwrap();
+
+        self.set_token_balance(
+            self.owner,
+            token,
+            token_info.decimals,
+            token_slot.1,
+            amount_u32,
+        );
+
+        self.approve(token, self.simulator_address, true).unwrap();
+
+        // Transfer Test
+        let transfer_output = self.simple_transfer(
+            amount,
+            token,
+            true,
+        );
+        
+        let out = transfer_output?;
+
+        // TODO: Make a validation against gas cost
+        // let gas_cost = out.1;
+
+        let send_transfered_amount = out.0.0;
+        let reducted_out_amount = amount.checked_sub(send_transfered_amount).unwrap();
+        let buy_tax_rate = reducted_out_amount.checked_mul(U256::from(100)).unwrap().checked_div(amount).unwrap();
+
+        let return_transfered_amount = out.0.1;
+
+        let reducted_out_amount = send_transfered_amount.checked_sub(return_transfered_amount).unwrap();
+        let sell_tax_rate = reducted_out_amount.checked_mul(U256::from(100)).unwrap().checked_div(send_transfered_amount).unwrap();
+
+        // NOTE: should we return gas comsumption?
+        Ok((buy_tax_rate, sell_tax_rate))
     }
 
     pub fn get_eth_balance(&mut self) -> U256 {

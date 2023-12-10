@@ -1,4 +1,5 @@
 use alloy_primitives::{Address, U160};
+use anyhow::Result;
 use ethers::types::{Block, BlockId, BlockNumber, H160, H256, U256, U64};
 use ethers_providers::Middleware;
 use log::info;
@@ -117,11 +118,41 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
         }
     }
 
+    pub async fn validate_token(
+        &mut self,
+        token: H160,
+        buy_tax_criteria: Option<U256>,
+        sell_tax_criteria: Option<U256>
+    )  {
+        let buy_tax_criteria = buy_tax_criteria.unwrap_or(U256::from(5)); // 5%
+        let sell_tax_criteria = sell_tax_criteria.unwrap_or(U256::from(10));
+
+        let transfer_token_res = self.simulator.transfer_token(token).await;
+        let out = match transfer_token_res {
+            Ok(out) => out,
+            Err(e) => {
+                info!("<Transfer ERROR>: {:?}", e);
+                self.honeypot.insert(token, true);
+                return;
+            }
+        };
+
+        if out.0.ge(&buy_tax_criteria) {
+            info!("<Send ERROR> Buy Tax Rate: {:?}", out.0);
+            self.honeypot.insert(token, true);
+        }
+
+        if out.1.ge(&sell_tax_criteria) {
+            info!("<Send ERROR> Sell Tax Rate: {:?}", out.1);
+            self.honeypot.insert(token, true);
+        }
+    }
+
     // TODO: Change the arg type so we can directly start executing validation
     //  Now, it's using &Vec<Pool> type to take advantage of the `filter_tokens` function implementation
     // But, this function will be used to validate token which doesn't have pool yet.
     // Use "tokens" with the same type instead of pools
-    pub async fn validate_token(&mut self, pools: &Vec<Pool>) {
+    pub async fn validate_tokens(&mut self, pools: &Vec<Pool>) {
         
         self.simulator.deploy_simulator();
 
@@ -143,75 +174,8 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
             }
         }
 
-
-        // NOTE: from here, the actual validation begins
-        // TODO: Curretly, transfer amount is defined as follows
-        // Change the way to define to be more flexible
-        let amount_u32 = 10000;
-
-        for (idx, token) in tokens.iter().enumerate() {
-            let token_info = get_token_info(self.simulator.provider.clone(), *token).await.unwrap();
-
-            let amount = U256::from(amount_u32)
-                .checked_mul(U256::from(10).pow(U256::from(token_info.decimals)))
-                .unwrap();
-
-            // TODO: change the way to retrieve token balance slot to `debug_call`
-            // let token_slot = get_token_info(self.simulator.provider, *token).await.unwrap();
-
-            self.simulator.set_token_balance(
-                self.simulator.owner,
-                *token,
-                token_info.decimals,
-                0,
-                amount_u32,
-            );
-
-            self.simulator.approve(*token, self.simulator.simulator_address, true).unwrap();
-    
-            // Transfer Test
-            let transfer_output = self.simulator.simple_transfer(
-                amount,
-                *token,
-                true,
-            );
-            
-            let out = match transfer_output {
-                Ok(out) => out,
-                Err(e) => {
-                    info!("<Transfer Error> {:?}", e);
-                    self.honeypot.insert(*token, true);
-                    continue;
-                }
-            };
-
-            // TODO: Make a validation against gas cost
-            // let gas_cost = out.1;
-
-            
-            let send_transfered_amount = out.0.0;
-            let buy_tax_criteria = U256::from(5); // 5%
-            let reducted_out_amount = amount.checked_sub(send_transfered_amount).unwrap();
-            let buy_tax_rate = reducted_out_amount.checked_mul(U256::from(100)).unwrap().checked_div(amount).unwrap();
-
-            if buy_tax_rate.ge(&buy_tax_criteria) {
-                info!("<Send ERROR> Buy Tax Rate: {:?}", buy_tax_rate);
-                self.honeypot.insert(*token, true);
-                continue;
-            }
-
-            let return_transfered_amount = out.0.1;
-            let sell_tax_criteria = U256::from(10);
-
-            let reducted_out_amount = send_transfered_amount.checked_sub(return_transfered_amount).unwrap();
-            let sell_tax_rate = reducted_out_amount.checked_mul(U256::from(100)).unwrap().checked_div(send_transfered_amount).unwrap();
-
-            if sell_tax_rate.ge(&sell_tax_criteria) {
-                info!("<Send ERROR> Sell Tax Rate: {:?}", sell_tax_rate);
-                self.honeypot.insert(*token, true);
-                continue;
-            }
-
+        for (_, token) in tokens.iter().enumerate() {
+           self.validate_token(*token, None, None);
         };
     }
 

@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
     honeypot_filter.setup().await;
 
     // TODO: change the arg to &Vec<H160> to accept token contract address directly
-    honeypot_filter.validate_token(&pools).await;
+    honeypot_filter.validate_tokens(&pools).await;
 
     honeypot_filter
         .filter_tokens(&pools[0..5000].to_vec())
