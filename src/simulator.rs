@@ -1,4 +1,4 @@
-use alloy_primitives::{Address, B256};
+use alloy_primitives::{Address, B256, U256 as aU256};
 use anyhow::{anyhow, Result};
 use bytes::Bytes;
 use ethers::abi;
@@ -467,5 +467,40 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         let value = self.staticcall(tx)?;
         let out = self.ownable.owner_output(value.output)?;
         Ok(out)
+    }
+    
+    // Check the existence of an admin address for ERC20 contract.
+    // The reason why it is limited to ERC20 contract is because we assume the specific storage slot management.
+    // In ERC20, the standard implementation and the plugin parts are highly limited. Hence, we assume if the ERC20 contract
+    // has address type storage slot in the contract, it would be the address who can do administrative tasks as an admin.
+    pub fn check_admin(
+        &mut self,
+        token_contract: Address,
+    ) -> Result<(bool, Vec<H160>)> {
+        let mut possible_admins = Vec::new();
+        for i in 0..15 {
+            let res = self
+            .evm
+            .db
+            .as_mut()
+            .unwrap()
+            .storage(token_contract, aU256::from(i))?;
+
+            // Convert Uint<256, 4> to big-endian bytes and take the values from 12 to the last
+            let mut be_vec = res.as_le_slice().to_vec();
+            be_vec.reverse();
+            println!("vec: {:?}", be_vec);
+            if be_vec[..12].iter().filter(|x| **x == 0).count() != 12 {
+                continue;
+            }
+
+            let owner = H160::from_slice(&&be_vec[12..]);
+            if !owner.is_zero() {
+                possible_admins.push(owner);
+            }
+        }   
+
+        let possible_address_storage = !possible_admins.is_empty();
+        Ok((possible_address_storage, possible_admins))
     }
 }
