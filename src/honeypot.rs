@@ -119,8 +119,8 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
         &mut self,
         token: H160,
         buy_tax_criteria: Option<U256>,
-        sell_tax_criteria: Option<U256>
-    )  {
+        sell_tax_criteria: Option<U256>,
+    ) {
         let buy_tax_criteria = buy_tax_criteria.unwrap_or(U256::from(5)); // 5%
         let sell_tax_criteria = sell_tax_criteria.unwrap_or(U256::from(10));
 
@@ -150,11 +150,10 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
     // But, this function will be used to validate token which doesn't have pool yet.
     // Use "tokens" with the same type instead of pools
     pub async fn validate_tokens(&mut self, pools: &Vec<Pool>) {
-        
         self.simulator.deploy_simulator();
 
         let mut tokens = Vec::new();
-        // TODO: This part can be cut 
+        // TODO: This part can be cut
         for (_, pool) in pools.iter().enumerate() {
             let token0_is_safe = self.safe_token_info.contains_key(&pool.token0);
             let token1_is_safe = self.safe_token_info.contains_key(&pool.token1);
@@ -172,8 +171,8 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
         }
 
         for (_, token) in tokens.iter().enumerate() {
-           self.validate_token(*token, None, None);
-        };
+            self.validate_token(*token, None, None);
+        }
     }
 
     pub async fn filter_tokens(&mut self, pools: &Vec<Pool>) {

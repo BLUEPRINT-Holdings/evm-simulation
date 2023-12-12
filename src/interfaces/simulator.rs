@@ -54,17 +54,11 @@ impl SimulatorABI {
         Ok(out)
     }
 
-    pub fn simple_transfer_input(
-        &self,
-        amount: U256,
-        sending_token: H160,
-    ) -> Result<Bytes> {
-        let calldata = self 
-            .abi
-            .encode("simpleTransfer", (amount, sending_token))?;
+    pub fn simple_transfer_input(&self, amount: U256, sending_token: H160) -> Result<Bytes> {
+        let calldata = self.abi.encode("simpleTransfer", (amount, sending_token))?;
         Ok(calldata)
     }
-    
+
     pub fn simple_transfer_output(&self, output: OutputBytes) -> Result<(U256, U256)> {
         let out = self.abi.decode_output("simpleTransfer", output)?;
         Ok(out)
