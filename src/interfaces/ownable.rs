@@ -12,9 +12,7 @@ pub struct OwnableABI {
 impl OwnableABI {
     pub fn new() -> Self {
         let abi = BaseContract::from(
-            parse_abi(&[
-                "function owner() public view virtual returns (address)",
-            ]).unwrap(),
+            parse_abi(&["function owner() public view virtual returns (address)"]).unwrap(),
         );
         Self { abi }
     }
