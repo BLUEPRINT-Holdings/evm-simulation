@@ -19,6 +19,7 @@ use foundry_utils::types::{ToAlloy, ToEthers};
 use std::{collections::BTreeSet, str::FromStr, sync::Arc};
 
 use crate::constants::{IMPLEMENTATION_SLOTS, SIMULATOR_CODE};
+use crate::interfaces::ownable::OwnableABI;
 use crate::interfaces::{pool::V2PoolABI, simulator::SimulatorABI, token::TokenABI};
 use crate::tokens::get_token_info;
 use crate::trace::EvmTracer;
@@ -33,6 +34,7 @@ pub struct EvmSimulator<M> {
     pub token: TokenABI,
     pub v2_pool: V2PoolABI,
     pub simulator: SimulatorABI,
+    pub ownable: OwnableABI,
 
     pub simulator_address: H160,
 }
@@ -94,6 +96,7 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
             token: TokenABI::new(),
             v2_pool: V2PoolABI::new(),
             simulator: SimulatorABI::new(),
+            ownable: OwnableABI::new(),
 
             simulator_address: H160::from_str("0x4E17607Fb72C01C280d7b5c41Ba9A2109D74a32C")
                 .unwrap(),
@@ -433,6 +436,7 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
             value: U256::zero(),
             gas_limit: 5000000,
         };
+
         let value = if commit { self.call(tx)? } else { self.staticcall(tx)? };
 
         let out = self.simulator.simple_transfer_output(value.output)?;
@@ -442,5 +446,26 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
             return_amount: out.1,
             gas_used: value.gas_used,
         })
+    }
+
+    // It calls owner() view function in the format of Ownable interface from OpenZeppelin
+    // You can interpret the result as follows:
+    // If the result is Address, but not zero, then, it is the address stored as owner for Ownable part
+    // It it's Zero Address, it means the former owner called renounce to throw away the ownership
+    // If the result if Err and the execution is reverted, the token_contract doesn't inherit the Ownable
+    pub fn check_owner(&mut self, token_contract: H160) -> Result<H160> {
+        let calldata = self.ownable.owner_input()?;
+
+        let tx = Tx {
+            caller: self.owner,
+            transact_to: token_contract,
+            data: calldata.0,
+            value: U256::zero(),
+            gas_limit: 5000000,
+        };
+
+        let value = self.staticcall(tx)?;
+        let out = self.ownable.owner_output(value.output)?;
+        Ok(out)
     }
 }
