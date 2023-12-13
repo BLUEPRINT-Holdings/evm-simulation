@@ -2,7 +2,7 @@ use anyhow::Result;
 use csv::StringRecord;
 use ethers::{abi::parse_abi, prelude::*};
 use ethers_contract::{Contract, Multicall};
-use ethers_core::types::{BlockId, BlockNumber, TxHash, H160, U256};
+use ethers_core::types::{BlockId, BlockNumber, TxHash, H160};
 use std::{str::FromStr, sync::Arc};
 use tokio::task::JoinSet;
 
