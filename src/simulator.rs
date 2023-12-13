@@ -53,6 +53,13 @@ pub struct TxResult {
     pub gas_refunded: u64,
 }
 
+#[derive(Debug, Clone)]
+pub struct SimpleTransferResult {
+    pub transfered_amount: U256,
+    pub return_amount: U256,
+    pub gas_used: u64,
+}
+
 impl<M: Middleware + 'static> EvmSimulator<M> {
     pub fn new(provider: Arc<M>, owner: H160, block_number: U64) -> Self {
         let shared_backend = SharedBackend::spawn_backend_thread(
@@ -179,7 +186,7 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         self._call(tx, true)
     }
 
-    pub async fn transfer_token(&mut self, token: H160) -> Result<(U256, U256)> {
+    pub async fn simulate_tax(&mut self, token: H160) -> Result<(U256, U256)> {
         self.deploy_simulator();
 
         let amount_u32 = 10000;
@@ -206,19 +213,17 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         self.approve(token, self.simulator_address, true).unwrap();
 
         // Transfer Test
-        let transfer_output = self.simple_transfer(amount, token, true);
-
-        let out = transfer_output?;
+        let transfer_result = self.simple_transfer(amount, token, true)?;
 
         // TODO: Make a validation against gas cost
         // let gas_cost = out.1;
 
-        let send_transfered_amount = out.0 .0;
+        let send_transfered_amount = transfer_result.transfered_amount;
         let reducted_out_amount = amount.checked_sub(send_transfered_amount).unwrap();
         let buy_tax_rate =
             reducted_out_amount.checked_mul(U256::from(100)).unwrap().checked_div(amount).unwrap();
 
-        let return_transfered_amount = out.0 .1;
+        let return_transfered_amount = transfer_result.return_amount;
 
         let reducted_out_amount =
             send_transfered_amount.checked_sub(return_transfered_amount).unwrap();
@@ -418,7 +423,7 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         amount: U256,
         sending_token: H160,
         commit: bool,
-    ) -> Result<((U256, U256), u64)> {
+    ) -> Result<SimpleTransferResult> {
         let calldata = self.simulator.simple_transfer_input(amount, sending_token)?;
 
         let tx = Tx {
@@ -431,6 +436,11 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         let value = if commit { self.call(tx)? } else { self.staticcall(tx)? };
 
         let out = self.simulator.simple_transfer_output(value.output)?;
-        Ok((out, value.gas_used))
+
+        Ok(SimpleTransferResult {
+            transfered_amount: out.0,
+            return_amount: out.1,
+            gas_used: value.gas_used,
+        })
     }
 }
