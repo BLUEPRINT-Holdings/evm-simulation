@@ -505,7 +505,8 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         for address in address_slots {
             let provider = self.provider.clone();
             tasks.push(async move {
-                let balance = provider.get_balance(address, None).await.unwrap();
+                let balance =
+                    provider.get_balance(address, None).await.expect("Failed to get balance");
                 if balance > U256::zero() {
                     Some(address)
                 } else {
