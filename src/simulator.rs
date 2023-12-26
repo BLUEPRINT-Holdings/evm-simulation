@@ -473,7 +473,8 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
     // The reason why it is limited to ERC20 contract is because we assume the specific storage slot management.
     // In ERC20, the standard implementation and the plugin parts are highly limited. Hence, we assume if the ERC20 contract
     // has address type storage slot in the contract, it would be the address who can do administrative tasks as an admin.
-    pub fn check_admin(&mut self, token_contract: Address) -> Result<(bool, Vec<H160>)> {
+    pub fn check_admin(&mut self, token_contract: H160) -> Result<(bool, Vec<H160>)> {
+        let token_contract = token_contract.to_alloy();
         let mut possible_admins = Vec::new();
         for i in 0..15 {
             let res = self.evm.db.as_mut().unwrap().storage(token_contract, aU256::from(i))?;
