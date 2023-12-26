@@ -452,13 +452,13 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
     // You can interpret the result as follows:
     // If the result is Address, but not zero, then, it is the address stored as owner for Ownable part
     // It it's Zero Address, it means the former owner called renounce to throw away the ownership
-    // If the result if Err and the execution is reverted, the token_contract doesn't inherit the Ownable
-    pub fn check_owner(&mut self, token_contract: H160) -> Result<H160> {
+    // If the result if Err and the execution is reverted, the token_address doesn't inherit the Ownable
+    pub fn check_owner(&mut self, token_address: H160) -> Result<H160> {
         let calldata = self.ownable.owner_input()?;
 
         let tx = Tx {
             caller: self.owner,
-            transact_to: token_contract,
+            transact_to: token_address,
             data: calldata.0,
             value: U256::zero(),
             gas_limit: 5000000,
@@ -473,11 +473,11 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
     // The reason why it is limited to ERC20 contract is because we assume the specific storage slot management.
     // In ERC20, the standard implementation and the plugin parts are highly limited. Hence, we assume if the ERC20 contract
     // has address type storage slot in the contract, it would be the address who can do administrative tasks as an admin.
-    pub fn check_admin(&mut self, token_contract: H160) -> Result<(bool, Vec<H160>)> {
-        let token_contract = token_contract.to_alloy();
+    pub fn check_address_slots(&mut self, token_address: H160) -> Result<Vec<H160>> {
+        let token_address = token_address.to_alloy();
         let mut possible_admins = Vec::new();
         for i in 0..15 {
-            let res = self.evm.db.as_mut().unwrap().storage(token_contract, aU256::from(i))?;
+            let res = self.evm.db.as_mut().unwrap().storage(token_address, aU256::from(i))?;
 
             // Convert Uint<256, 4> to big-endian bytes and take the values from 12 to the last
             let mut be_vec = res.as_le_slice().to_vec();
@@ -492,7 +492,35 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
             }
         }
 
-        let possible_address_storage = !possible_admins.is_empty();
-        Ok((possible_address_storage, possible_admins))
+        Ok(possible_admins)
+    }
+
+    pub async fn check_possible_admins(&mut self, token_address: H160) -> Result<Vec<H160>> {
+        let address_slots = self.check_address_slots(token_address)?;
+        let mut possible_admins = Vec::new();
+
+        // Check if the addresses have some ETH balance
+        // If it has, it is likely to be an admin address
+        let mut tasks = Vec::new();
+        for address in address_slots {
+            let provider = self.provider.clone();
+            tasks.push(async move {
+                let balance = provider.get_balance(address, None).await.unwrap();
+                if balance > U256::zero() {
+                    Some(address)
+                } else {
+                    None
+                }
+            });
+        }
+
+        let results = futures::future::join_all(tasks).await;
+        for result in results {
+            if let Some(address) = result {
+                possible_admins.push(address);
+            }
+        }
+
+        Ok(possible_admins)
     }
 }
