@@ -482,7 +482,6 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
             // Convert Uint<256, 4> to big-endian bytes and take the values from 12 to the last
             let mut be_vec = res.as_le_slice().to_vec();
             be_vec.reverse();
-            println!("vec: {:?}", be_vec);
             if be_vec[..12].iter().filter(|x| **x == 0).count() != 12 {
                 continue;
             }
