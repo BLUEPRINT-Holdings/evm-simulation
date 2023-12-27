@@ -32,6 +32,7 @@ pub struct HoneypotFilter<M> {
     pub honeypot: HashMap<H160, bool>,
     buy_tax: HashMap<H160, f64>,
     sell_tax: HashMap<H160, f64>,
+    is_proxy: HashMap<H160, bool>,
 }
 
 impl<M: Middleware + 'static> HoneypotFilter<M> {
@@ -45,6 +46,7 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
         let honeypot = HashMap::new();
         let buy_tax = HashMap::new();
         let sell_tax = HashMap::new();
+        let is_proxy = HashMap::new();
         Self {
             simulator,
             safe_tokens,
@@ -54,6 +56,7 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
             honeypot,
             buy_tax,
             sell_tax,
+            is_proxy,
         }
     }
 
@@ -205,6 +208,7 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
                 if is_proxy_contr {
                     info!("⚠️ [{}] {} is proxy", idx, test_token);
                     self.honeypot.insert(test_token, true);
+                    self.is_proxy.insert(test_token, true);
                     continue;
                 }
 
@@ -327,5 +331,9 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
 
     pub fn is_honeypot(&self, token: H160) -> bool {
         self.honeypot.contains_key(&token)
+    }
+
+    pub fn is_proxy(&self, token: H160) -> bool {
+        self.is_proxy.contains_key(&token)
     }
 }
