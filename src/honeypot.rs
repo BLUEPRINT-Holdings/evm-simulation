@@ -142,6 +142,13 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
 
         self.buy_tax.insert(token, out.0.as_u64() as f64 / 100.0);
         self.sell_tax.insert(token, out.1.as_u64() as f64 / 100.0);
+
+        let is_proxy = self.simulator.is_proxy(Address::from(U160::from_be_bytes(token.0)));
+        if is_proxy {
+            info!("⚠️ {} is proxy", token);
+            self.honeypot.insert(token, true);
+            self.is_proxy.insert(token, true);
+        }
     }
 
     // TODO: Change the arg type so we can directly start executing validation
