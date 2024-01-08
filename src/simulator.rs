@@ -4,6 +4,7 @@ use bytes::Bytes;
 use ethers::abi;
 use ethers::types::{Transaction, H160, U256, U64};
 use ethers_providers::Middleware;
+use foundry_common::types::{ToAlloy, ToEthers};
 use foundry_evm::{
     fork::{BlockchainDb, BlockchainDbMeta, SharedBackend},
     revm::{
@@ -15,7 +16,6 @@ use foundry_evm::{
         EVM,
     },
 };
-use foundry_utils::types::{ToAlloy, ToEthers};
 use std::{collections::BTreeSet, str::FromStr, sync::Arc};
 
 use crate::constants::{IMPLEMENTATION_SLOTS, SIMULATOR_CODE};
