@@ -114,7 +114,7 @@ impl<M: Middleware + 'static> EvmTracer<M> {
     pub async fn check_possible_evil_implementation(
         &self,
         token: H160,
-        owner: H160,
+        owner: Option<H160>,
         sender: H160,
     ) -> Result<bool> {
         let recipient = *DEFAULT_RECIPIENT;
@@ -136,6 +136,7 @@ impl<M: Middleware + 'static> EvmTracer<M> {
         );
         let calldata = erc20_contract.encode("transfer", (recipient, U256::one())).unwrap();
 
+        let owner = owner.unwrap_or(H160::zero());
         let from_addresses = if owner.is_zero() { vec![sender] } else { vec![sender, owner] };
         for from_address in from_addresses {
             let is_owner = from_address == owner;
