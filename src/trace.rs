@@ -136,7 +136,8 @@ impl<M: Middleware + 'static> EvmTracer<M> {
         );
         let calldata = erc20_contract.encode("transfer", (recipient, U256::one())).unwrap();
 
-        for from_address in vec![sender, owner] {
+        let from_addresses = if owner.is_zero() { vec![sender] } else { vec![sender, owner] };
+        for from_address in from_addresses {
             let is_owner = from_address == owner;
             let tx = Eip1559TransactionRequest {
                 to: Some(NameOrAddress::Address(token)),
