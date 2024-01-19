@@ -129,14 +129,14 @@ impl<M: Middleware + 'static> EvmTracer<M> {
         let nonce = nonce.unwrap_or(U256::default());
         let chain_id = chain_id.unwrap_or(DEFAULT_CHAIN_ID);
         if sender.eq(&owner) {
-            return Err(anyhow!("sender must be different from owner"))
+            return Err(anyhow!("sender must be different from owner"));
         }
 
         // A brute force way of finding the storage slot value of an ERC-20 token
         // Calling transfer and tracing the call using "debug_traceCall" will give us access to the
         // storage slot of "mapping(address => bool) type". But, unfortunately, evm storage mechanism doesn't
         // support the direct detection of the above data type because each slot comsists both of key data type
-        // and the index if it's mapping. 
+        // and the index if it's mapping.
         let erc20_contract = BaseContract::from(
             parse_abi(&["function transfer(address,uint256) external returns (bool)"]).unwrap(),
         );
@@ -172,7 +172,9 @@ impl<M: Middleware + 'static> EvmTracer<M> {
                                 Some(_) => {
                                     return Ok(true);
                                 }
-                                None => {continue;}
+                                None => {
+                                    continue;
+                                }
                             };
                         }
                         Ok(false)
