@@ -117,28 +117,26 @@ impl<M: Middleware + 'static> EvmTracer<M> {
         &self,
         token: H160,
         sender: Option<H160>,
-        sender_balance: bool,
+        // sender_balance: bool,
         recipient: Option<H160>,
-        owner: Option<H160>, // Optional, could be None if there's none.
+        owner: H160, // Optional, could be None if there's none.
         nonce: Option<U256>,
         chain_id: Option<U64>,
         block_number: u64, // must be the number after the one contract's created
-    ) -> Result<(bool, i32)> {
+    ) -> Result<bool> {
         let sender = sender.unwrap_or(*DEFAULT_SENDER);
         let recipient = recipient.unwrap_or(*DEFAULT_RECIPIENT);
-        let owner = owner.unwrap_or(H160::zero()); // H160::zero()は0x0を意味します
         let nonce = nonce.unwrap_or(U256::default());
         let chain_id = chain_id.unwrap_or(DEFAULT_CHAIN_ID);
+        if sender.eq(&owner) {
+            return Err(anyhow!("sender must be different from owner"))
+        }
 
         // A brute force way of finding the storage slot value of an ERC-20 token
         // Calling transfer and tracing the call using "debug_traceCall" will give us access to the
         // storage slot of "mapping(address => bool) type". But, unfortunately, evm storage mechanism doesn't
         // support the direct detection of the above data type because each slot comsists both of key data type
-        // and the index if it's mapping. It means we cannot tell if the slot is mapping(address => bool) or
-        // mapping(address => uint256), which is used for balance. So, assuming the ERC20 contract
-        // fundamentally has only mapping(address => uint256) as of the type of data has address as a key,
-        // we assert the existence of mapping(address => bool) slot by counting the number of slots have the type
-        // of data has address as a key.
+        // and the index if it's mapping. 
         let erc20_contract = BaseContract::from(
             parse_abi(&["function transfer(address,uint256) external returns (bool)"]).unwrap(),
         );
@@ -157,8 +155,6 @@ impl<M: Middleware + 'static> EvmTracer<M> {
         };
         let trace = self.get_state_diff(tx, block_number).await.unwrap();
 
-        let mut simple_count = 0;
-        let mut owner_key_storage = false;
         match trace {
             GethTrace::Known(known) => match known {
                 GethTraceFrame::PreStateTracer(prestate) => match prestate {
@@ -169,42 +165,23 @@ impl<M: Middleware + 'static> EvmTracer<M> {
                             token_info.storage.clone().ok_or(anyhow!("no storage values"))?;
                         for i in 0..20 {
                             let slot = keccak256(&abi::encode(&[
-                                abi::Token::Address(sender),
+                                abi::Token::Address(owner),
                                 abi::Token::Uint(U256::from(i)),
                             ]));
                             match touched_storage.get(&slot.to_ethers()) {
                                 Some(_) => {
-                                    simple_count += 1;
+                                    return Ok(true);
                                 }
-                                None => {
-                                    if !owner.is_zero() && owner_key_storage == false {
-                                        let owner_slot = keccak256(&abi::encode(&[
-                                            abi::Token::Address(owner),
-                                            abi::Token::Uint(U256::from(i)),
-                                        ]));
-                                        match touched_storage.get(&owner_slot.to_ethers()) {
-                                            Some(_) => {
-                                                owner_key_storage = true;
-                                            }
-                                            None => {}
-                                        }
-                                    }
-                                }
-                            }
+                                None => {continue;}
+                            };
                         }
-                        let possible_evil_impl: bool;
-                        if sender_balance {
-                            possible_evil_impl = simple_count.ge(&2) || owner_key_storage;
-                        } else {
-                            possible_evil_impl = simple_count.ge(&1) || owner_key_storage;
-                        }
-                        return Ok((possible_evil_impl, simple_count));
+                        Ok(false)
                     }
-                    _ => Ok((false, 0)),
+                    _ => Ok(false),
                 },
-                _ => Ok((false, 0)),
+                _ => Ok(false),
             },
-            _ => Ok((false, 0)),
+            _ => Ok(false),
         }
     }
 
