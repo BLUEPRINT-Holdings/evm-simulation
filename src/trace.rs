@@ -117,17 +117,13 @@ impl<M: Middleware + 'static> EvmTracer<M> {
         &self,
         token: H160,
         sender: Option<H160>,
-        // sender_balance: bool,
-        recipient: Option<H160>,
-        owner: H160, // Optional, could be None if there's none.
-        nonce: Option<U256>,
-        chain_id: Option<U64>,
-        block_number: u64, // must be the number after the one contract's created
+        owner: H160,
     ) -> Result<bool> {
         let sender = sender.unwrap_or(*DEFAULT_SENDER);
-        let recipient = recipient.unwrap_or(*DEFAULT_RECIPIENT);
-        let nonce = nonce.unwrap_or(U256::default());
-        let chain_id = chain_id.unwrap_or(DEFAULT_CHAIN_ID);
+        let recipient = *DEFAULT_RECIPIENT;
+        let nonce = U256::default();
+        let chain_id = DEFAULT_CHAIN_ID;
+        let block_number = self.provider.get_block_number().await.unwrap().as_u64();
         if sender.eq(&owner) {
             return Err(anyhow!("sender must be different from owner"));
         }
