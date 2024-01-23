@@ -30,6 +30,7 @@ pub struct HoneypotFilter<M> {
     pub safe_token_info: HashMap<H160, Token>,
     pub balance_slots: HashMap<H160, u32>,
     pub honeypot: HashMap<H160, bool>,
+    transfer_tax: HashMap<H160, f64>,
     buy_tax: HashMap<H160, f64>,
     sell_tax: HashMap<H160, f64>,
     is_proxy: HashMap<H160, bool>,
@@ -44,6 +45,7 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
         let safe_token_info = HashMap::new();
         let balance_slots = HashMap::new();
         let honeypot = HashMap::new();
+        let transfer_tax = HashMap::new();
         let buy_tax = HashMap::new();
         let sell_tax = HashMap::new();
         let is_proxy = HashMap::new();
@@ -54,6 +56,7 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
             safe_token_info,
             balance_slots,
             honeypot,
+            transfer_tax,
             buy_tax,
             sell_tax,
             is_proxy,
@@ -114,34 +117,48 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
     pub async fn validate_token(
         &mut self,
         token: H160,
-        buy_tax_criteria: Option<U256>,
+        transfer_tax_criteria: Option<U256>,
         sell_tax_criteria: Option<U256>,
     ) {
-        let buy_tax_criteria = buy_tax_criteria.unwrap_or(U256::from(5)); // 5%
+        let transfer_tax_criteria = transfer_tax_criteria.unwrap_or(U256::from(5));
         let sell_tax_criteria = sell_tax_criteria.unwrap_or(U256::from(10));
 
-        let simulate_tax_res = self.simulator.simulate_tax(token).await;
-        let out = match simulate_tax_res {
+        self.simulator.deploy_simulator();
+
+        let simulate_transfer_res = self.simulator.simulate_simple_transfer(token).await;
+        let simulated_transfer_tax_rate = match simulate_transfer_res {
             Ok(out) => out,
             Err(e) => {
                 info!("<Transfer ERROR>: {:?}", e);
-                self.honeypot.insert(token, true);
-                return;
+                // using 111 as the error signal on tax rate
+                U256::from(111)
+                // NOTE: we don't define as honeypot due to the simple transfer error at this point
+                // self.honeypot.insert(token, true);
+                // return;
             }
         };
 
-        if out.0.ge(&buy_tax_criteria) {
-            info!("<Send ERROR> Buy Tax Rate: {:?}", out.0);
+        if simulated_transfer_tax_rate.ne(&U256::from(111)) && simulated_transfer_tax_rate.ge(&transfer_tax_criteria) {
+            info!("<Send ERROR> Transfer Tax Rate: {:?}", simulated_transfer_tax_rate);
             self.honeypot.insert(token, true);
         }
 
-        if out.1.ge(&sell_tax_criteria) {
-            info!("<Send ERROR> Sell Tax Rate: {:?}", out.1);
+        // NOTE: should we allocate pseudoSell() here?
+        let pseudo_sell_res = self.simulator.simulate_pseudo_sell(token, true).await;
+        let pseudo_sell_tax_rate = match pseudo_sell_res {
+            Ok(out) => out,
+            // using 111 as the error signal on tax rate
+            Err(e) => U256::from(111),
+        };
+        
+        if pseudo_sell_tax_rate.ne(&U256::from(111)) && pseudo_sell_tax_rate.ge(&sell_tax_criteria) {
+            info!("<Send ERROR> Sell Tax Rate: {:?}", pseudo_sell_tax_rate);
             self.honeypot.insert(token, true);
         }
 
-        self.buy_tax.insert(token, out.0.as_u64() as f64 / 100.0);
-        self.sell_tax.insert(token, out.1.as_u64() as f64 / 100.0);
+        // NOTE: 1.11 means retrieving tax rate was failed
+        self.transfer_tax.insert(token, simulated_transfer_tax_rate.as_u64() as f64 / 100.0);
+        self.sell_tax.insert(token, pseudo_sell_tax_rate.as_u64() as f64 / 100.0);
 
         let is_proxy = self.simulator.is_proxy(Address::from(U160::from_be_bytes(token.0)));
         if is_proxy {
