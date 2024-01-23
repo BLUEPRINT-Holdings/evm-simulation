@@ -24,6 +24,8 @@ contract Simulator {
 
     // Execute token transfer to the uniswap pair contract as a pseudo buy swap of the other token
     // of the pair
+    /// NOTE: Separate from simpleTransfer for the future additional implementaion.
+    // but, we can migrate them at some point if nothing is needed to be added.
     function pseudoSell(
         uint256 amountIn,
         address targetPair,
