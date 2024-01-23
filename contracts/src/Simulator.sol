@@ -16,14 +16,21 @@ contract Simulator {
     function simpleTransfer(
         uint256 amount,
         address sendingToken
-    ) external returns (uint256 transferedAmount, uint256 simulatorBalance) {
+    ) external returns (uint256) {
         // Send token from simulator (EOA) to this contract
         IERC20(sendingToken).safeTransferFrom(msg.sender, address(this), amount);
-        transferedAmount = IERC20(sendingToken).balanceOf(address(this));
+        return IERC20(sendingToken).balanceOf(address(this));
+    }
 
-        // Send token back to simulator(EOA) from contract
-        IERC20(sendingToken).safeTransfer(msg.sender, transferedAmount);
-        simulatorBalance = IERC20(sendingToken).balanceOf(msg.sender);
+    // Execute token transfer to the uniswap pair contract as a pseudo buy swap of the other token
+    // of the pair
+    function pseudoSell(
+        uint256 amountIn,
+        address targetPair,
+        address inputToken
+    ) external returns (uint256) {
+        IERC20(inputToken).safeTransfer(targetPair, amountIn);
+        return IERC20(inputToken).balanceOf(targetPair);
     }
 
     function v2SimulateSwap(
@@ -53,8 +60,7 @@ contract Simulator {
         }
 
         // 2. Calculate the amount out you are supposed to get if the token isn't taxed
-        uint256 actualAmountIn = IERC20(inputToken).balanceOf(targetPair) -
-            reserveIn;
+        uint256 actualAmountIn = IERC20(inputToken).balanceOf(targetPair) - reserveIn;
         amountOut = this.getAmountOut(actualAmountIn, reserveIn, reserveOut);
 
         // Take the tax into account
