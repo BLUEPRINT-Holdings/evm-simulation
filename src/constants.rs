@@ -19,7 +19,6 @@ pub static ZERO_ADDRESS: Lazy<Address> =
 pub static DEFAULT_ROUTER_ADDRESS: Lazy<Address> =
     Lazy::new(|| Address::from_str("0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D").unwrap());
 
-
 pub fn get_env(key: &str) -> String {
     std::env::var(key).unwrap()
 }

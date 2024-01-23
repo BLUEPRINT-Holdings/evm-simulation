@@ -64,12 +64,18 @@ impl SimulatorABI {
         Ok(out)
     }
 
-    pub fn pseudo_sell_input(&self, amount_in: U256, sending_token: H160, destination_contract: H160) -> Result<Bytes> {
-        let calldata = self.abi.encode("pseudoSell", (amount_in, sending_token, destination_contract))?;
+    pub fn pseudo_sell_input(
+        &self,
+        amount_in: U256,
+        sending_token: H160,
+        destination_contract: H160,
+    ) -> Result<Bytes> {
+        let calldata =
+            self.abi.encode("pseudoSell", (amount_in, sending_token, destination_contract))?;
         Ok(calldata)
     }
 
-    pub fn pseudo_sell_output(&self,output: OutputBytes) -> Result<U256> {
+    pub fn pseudo_sell_output(&self, output: OutputBytes) -> Result<U256> {
         let out = self.abi.decode_output("pseudoSell", output)?;
         Ok(out)
     }

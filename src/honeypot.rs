@@ -138,7 +138,9 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
             }
         };
 
-        if simulated_transfer_tax_rate.ne(&U256::from(111)) && simulated_transfer_tax_rate.ge(&transfer_tax_criteria) {
+        if simulated_transfer_tax_rate.ne(&U256::from(111))
+            && simulated_transfer_tax_rate.ge(&transfer_tax_criteria)
+        {
             info!("<Send ERROR> Transfer Tax Rate: {:?}", simulated_transfer_tax_rate);
             self.honeypot.insert(token, true);
         }
@@ -150,8 +152,9 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
             // using 111 as the error signal on tax rate
             Err(e) => U256::from(111),
         };
-        
-        if pseudo_sell_tax_rate.ne(&U256::from(111)) && pseudo_sell_tax_rate.ge(&sell_tax_criteria) {
+
+        if pseudo_sell_tax_rate.ne(&U256::from(111)) && pseudo_sell_tax_rate.ge(&sell_tax_criteria)
+        {
             info!("<Send ERROR> Sell Tax Rate: {:?}", pseudo_sell_tax_rate);
             self.honeypot.insert(token, true);
         }

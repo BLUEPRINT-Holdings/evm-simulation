@@ -18,7 +18,7 @@ use foundry_evm::{
 };
 use std::{collections::BTreeSet, str::FromStr, sync::Arc};
 
-use crate::constants::{IMPLEMENTATION_SLOTS, SIMULATOR_CODE, DEFAULT_ROUTER_ADDRESS};
+use crate::constants::{DEFAULT_ROUTER_ADDRESS, IMPLEMENTATION_SLOTS, SIMULATOR_CODE};
 use crate::interfaces::ownable::OwnableABI;
 use crate::interfaces::{pool::V2PoolABI, simulator::SimulatorABI, token::TokenABI};
 use crate::tokens::get_token_info;
@@ -188,12 +188,7 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         self._call(tx, true)
     }
 
-    pub async fn execute_set_token_balance(
-        &mut self,
-        token: H160,
-        balance: u32,
-        decimals: u8
-    ) {
+    pub async fn execute_set_token_balance(&mut self, token: H160, balance: u32, decimals: u8) {
         let tracer = EvmTracer::new(self.provider.clone());
         let chain_id = self.provider.get_chainid().await.unwrap();
 
@@ -209,7 +204,6 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
             .unwrap();
 
         self.set_token_balance(self.owner, token, decimals, token_slot.1, balance);
-
     }
 
     pub async fn simulate_simple_transfer(&mut self, token: H160) -> Result<U256> {
@@ -250,10 +244,12 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
 
         self.execute_set_token_balance(sending_token, amount_in_u32, token_info.decimals).await;
         self.approve(sending_token, self.simulator_address, true).unwrap();
-        let pseudo_sell_res = self.pseudo_sell(amount_in, sending_token, *DEFAULT_ROUTER_ADDRESS, commit)?;
+        let pseudo_sell_res =
+            self.pseudo_sell(amount_in, sending_token, *DEFAULT_ROUTER_ADDRESS, commit)?;
 
         let reducted_amount = amount_in.checked_sub(pseudo_sell_res).unwrap();
-        let pseudo_sell_tax_rate = reducted_amount.checked_mul(U256::from(100)).unwrap().checked_div(amount_in).unwrap();
+        let pseudo_sell_tax_rate =
+            reducted_amount.checked_mul(U256::from(100)).unwrap().checked_div(amount_in).unwrap();
         Ok(pseudo_sell_tax_rate)
     }
 
@@ -348,18 +344,19 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         destination_contract: H160,
         commit: bool,
     ) -> Result<U256> {
-        let calldata = self.simulator.pseudo_sell_input(amount_in, sending_token, destination_contract)?;
+        let calldata =
+            self.simulator.pseudo_sell_input(amount_in, sending_token, destination_contract)?;
         let tx = Tx {
             caller: self.owner,
             transact_to: self.simulator_address,
             data: calldata.0,
             value: U256::zero(),
-            gas_limit: 5000000,            
+            gas_limit: 5000000,
         };
 
         let value = if commit { self.call(tx)? } else { self.staticcall(tx)? };
         let out = self.simulator.pseudo_sell_output(value.output)?;
-        Ok(out)       
+        Ok(out)
     }
 
     pub fn v2_simulate_swap(
@@ -479,10 +476,7 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
 
         let out = self.simulator.simple_transfer_output(value.output)?;
 
-        Ok(SimpleTransferResult {
-            transfered_amount: out,
-            gas_used: value.gas_used,
-        })
+        Ok(SimpleTransferResult { transfered_amount: out, gas_used: value.gas_used })
     }
 
     // It calls owner() view function in the format of Ownable interface from OpenZeppelin
