@@ -47,6 +47,7 @@ contract Simulator {
         }
 
         // 2. Calculate the amount out you are supposed to get if the token isn't taxed
+        // use amountIn defined as an arg to calculate the amountOut without tax
         targetedAmountOut = this.getAmountOut(amountIn, reserveIn, reserveOut);
         uint256 actualAmountIn = IERC20(inputToken).balanceOf(targetPair) -
             reserveIn;

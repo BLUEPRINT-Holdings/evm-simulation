@@ -221,7 +221,9 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
             token_addr,
             true,
         );
-        // (AmountOut, RealAmountOut)
+        // (TargetedAmountOut, RealAfterBalance)
+        // out.0 is TargetedAmountOut that is calculated using amountIn in arg
+        // out.1 is the amount that is actually transfered to the simulator eoa address
         let out = match buy_output {
             Ok(out) => out,
             Err(e) => {
@@ -239,7 +241,12 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
 
         if buy_tax_rate < buy_tax_criteria.mul(100) {
             // Sell Test
+            // Use out.1 as an amountIn arg for the sell swap so as to avoit calling set_token_balance 
+            // and articulate the returning ratio against first buying amount
             let amount_in = out.1;
+            // (TargetedAmountOut, RealAfterBalance)
+            // out.0 is TargetedAmountOut that is calculated using amountIn in arg
+            // out.1 is the amount that is actually transfered to the simulator eoa address
             let sell_output =
                 self.simulator.v2_simulate_swap(amount_in, pool_addr, token_addr, safe_token, true);
             let out = match sell_output {
