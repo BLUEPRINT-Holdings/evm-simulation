@@ -122,7 +122,7 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
         transfer_tax_criteria: Option<U256>,
     ) {
         let transfer_tax_criteria = transfer_tax_criteria.unwrap_or(U256::from(5));
-        
+
         self.simulator.deploy_simulator();
 
         let simulate_transfer_res = self.simulator.simulate_simple_transfer(token_addr).await;
@@ -195,7 +195,7 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
     ) {
         let buy_tax_criteria = buy_tax_criteria.unwrap_or(U256::from(5));
         let sell_tax_criteria = sell_tax_criteria.unwrap_or(U256::from(5));
-        
+
         self.simulator.deploy_simulator();
 
         // seed the simulator with some safe token balance
@@ -210,9 +210,9 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
             amount_in_u32,
         );
 
-        // buy with 0.1WETH 
+        // buy with 0.1WETH
         let weth_amount_in = U256::from(10i64.pow(WETH_DECIMALS.sub(1).into()));
-        
+
         // Buy Test
         let buy_output = self.simulator.v2_simulate_swap(
             weth_amount_in,
@@ -227,7 +227,7 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
             Err(e) => {
                 info!("<BUY ERROR> {:?}", e);
                 self.honeypot.insert(token_addr, true);
-                return
+                return;
             }
         };
 
@@ -240,28 +240,20 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
         if buy_tax_rate < buy_tax_criteria.mul(100) {
             // Sell Test
             let amount_in = out.1;
-            let sell_output = self.simulator.v2_simulate_swap(
-                amount_in,
-                pool_addr,
-                token_addr,
-                safe_token,
-                true,
-            );
+            let sell_output =
+                self.simulator.v2_simulate_swap(amount_in, pool_addr, token_addr, safe_token, true);
             let out = match sell_output {
                 Ok(out) => out,
                 Err(e) => {
                     info!("<SELL ERROR> {:?}", e);
                     self.honeypot.insert(token_addr, true);
-                    return
+                    return;
                 }
             };
 
             let out_ratio = out.0.checked_sub(out.1).unwrap();
-            let sell_tax_rate = out_ratio
-                .checked_mul(U256::from(10000))
-                .unwrap()
-                .checked_div(out.0)
-                .unwrap();
+            let sell_tax_rate =
+                out_ratio.checked_mul(U256::from(10000)).unwrap().checked_div(out.0).unwrap();
             let sell_tax_rate_f64 = sell_tax_rate.as_u64() as f64 / 10000.0;
             self.sell_tax.insert(token_addr, sell_tax_rate_f64);
 
