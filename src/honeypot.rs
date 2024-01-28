@@ -118,11 +118,9 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
         &mut self,
         token: H160,
         transfer_tax_criteria: Option<U256>,
-        sell_tax_criteria: Option<U256>,
     ) {
         let transfer_tax_criteria = transfer_tax_criteria.unwrap_or(U256::from(5));
-        let sell_tax_criteria = sell_tax_criteria.unwrap_or(U256::from(10));
-
+        
         self.simulator.deploy_simulator();
 
         let simulate_transfer_res = self.simulator.simulate_simple_transfer(token).await;
@@ -145,23 +143,8 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
             self.honeypot.insert(token, true);
         }
 
-        // NOTE: should we allocate pseudoSell() here?
-        let pseudo_sell_res = self.simulator.simulate_pseudo_sell(token, true).await;
-        let pseudo_sell_tax_rate = match pseudo_sell_res {
-            Ok(out) => out,
-            // using 111 as the error signal on tax rate
-            Err(e) => U256::from(111),
-        };
-
-        if pseudo_sell_tax_rate.ne(&U256::from(111)) && pseudo_sell_tax_rate.ge(&sell_tax_criteria)
-        {
-            info!("<Send ERROR> Sell Tax Rate: {:?}", pseudo_sell_tax_rate);
-            self.honeypot.insert(token, true);
-        }
-
         // NOTE: 1.11 means retrieving tax rate was failed
         self.transfer_tax.insert(token, simulated_transfer_tax_rate.as_u64() as f64 / 100.0);
-        self.sell_tax.insert(token, pseudo_sell_tax_rate.as_u64() as f64 / 100.0);
 
         let is_proxy = self.simulator.is_proxy(Address::from(U160::from_be_bytes(token.0)));
         if is_proxy {
@@ -197,7 +180,7 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
         }
 
         for (_, token) in tokens.iter().enumerate() {
-            self.validate_token(*token, None, None).await;
+            self.validate_token(*token, None).await;
         }
     }
 

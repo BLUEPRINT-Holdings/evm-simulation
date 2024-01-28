@@ -22,19 +22,6 @@ contract Simulator {
         return IERC20(sendingToken).balanceOf(address(this));
     }
 
-    // Execute token transfer to the uniswap pair contract as a pseudo buy swap of the other token
-    // of the pair
-    /// NOTE: Separate from simpleTransfer for the future additional implementaion.
-    // but, we can migrate them at some point if nothing is needed to be added.
-    function pseudoSell(
-        uint256 amountIn,
-        address targetPair,
-        address inputToken
-    ) external returns (uint256) {
-        IERC20(inputToken).safeTransfer(targetPair, amountIn);
-        return IERC20(inputToken).balanceOf(targetPair);
-    }
-
     function v2SimulateSwap(
         uint256 amountIn,
         address targetPair,
