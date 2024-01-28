@@ -12,6 +12,7 @@ use evm_simulation::paths::generate_triangular_paths;
 use evm_simulation::pools::{load_all_pools, Pool};
 
 use evm_simulation::utils::setup_logger;
+use url::Url;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -21,7 +22,11 @@ async fn main() -> Result<()> {
     info!("[⚡️🦀⚡️ Starting EVM simulation]");
 
     let env = Env::new();
-    let ws = Ws::connect(&env.wss_url).await.unwrap();
+    // let ws = Ws::connect(&env.wss_url).await.unwrap();
+    let wss_url = format!("{}?key={}", &env.wss_url, &env.api_key);
+    let wss_url = Url::parse(&wss_url).expect("Failed to parse WSS URL");
+    let ws = Ws::connect(wss_url).await.unwrap();
+
     let provider = Arc::new(Provider::new(ws));
 
     let block = provider.get_block(BlockNumber::Latest).await.unwrap().unwrap();
@@ -45,7 +50,17 @@ async fn main() -> Result<()> {
     let mut honeypot_filter = HoneypotFilter::new(provider.clone(), block.clone());
     honeypot_filter.setup().await;
 
-    honeypot_filter.filter_tokens(&pools[0..5000].to_vec()).await;
+    // let token_addr = H160::from_str("0xdAC17F958D2ee523a2206206994597C13D831ec7").unwrap();
+    // bebe
+    // let token_addr = H160::from_str("0xadBB84eD017F9db0eEfD2F65A2AAB63513a2b724").unwrap();
+    let token_addr = H160::from_str("0x24EdDeD3f03abb2e9D047464294133378bddB596").unwrap();
+
+    // let pool_addr = H160::from_str("0x32A19Dfc769950cC2206bBeab9696034FF4C06e1").unwrap();
+    // let pool_addr = H160::from_str("0x6F338b7e6f5416Cc89a35cC146EF5ee824AB2a2D").unwrap();
+    let pool_addr = H160::from_str("0x15842C52c5A8730F028708e3492e1ab0Be59Bd80").unwrap();
+
+    honeypot_filter.validate_token_on_simulate_swap(token_addr, pool_addr, None, None).await;
+    // honeypot_filter.filter_tokens(&pools[0..5000].to_vec()).await;
 
     let verified_pools: Vec<Pool> = pools
         .into_iter()
