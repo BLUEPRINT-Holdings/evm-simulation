@@ -2,8 +2,10 @@ use alloy_primitives::{Address, U160};
 use ethers::types::{Block, BlockId, BlockNumber, H160, H256, U256, U64};
 use ethers_providers::Middleware;
 use log::info;
+use std::ops::{Mul, Sub};
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
+use crate::constants::{WETH_BALANCE_SLOT, WETH_DECIMALS};
 use crate::pools::Pool;
 use crate::simulator::EvmSimulator;
 use crate::tokens::{get_implementation, get_token_info, Token};
@@ -114,16 +116,16 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
         }
     }
 
-    pub async fn validate_token(
+    pub async fn validate_token_on_simple_transfer(
         &mut self,
-        token: H160,
+        token_addr: H160,
         transfer_tax_criteria: Option<U256>,
     ) {
         let transfer_tax_criteria = transfer_tax_criteria.unwrap_or(U256::from(5));
         
         self.simulator.deploy_simulator();
 
-        let simulate_transfer_res = self.simulator.simulate_simple_transfer(token).await;
+        let simulate_transfer_res = self.simulator.simulate_simple_transfer(token_addr).await;
         let simulated_transfer_tax_rate = match simulate_transfer_res {
             Ok(out) => out,
             Err(e) => {
@@ -140,17 +142,17 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
             && simulated_transfer_tax_rate.ge(&transfer_tax_criteria)
         {
             info!("<Send ERROR> Transfer Tax Rate: {:?}", simulated_transfer_tax_rate);
-            self.honeypot.insert(token, true);
+            self.honeypot.insert(token_addr, true);
         }
 
         // NOTE: 1.11 means retrieving tax rate was failed
-        self.transfer_tax.insert(token, simulated_transfer_tax_rate.as_u64() as f64 / 100.0);
+        self.transfer_tax.insert(token_addr, simulated_transfer_tax_rate.as_u64() as f64 / 100.0);
 
-        let is_proxy = self.simulator.is_proxy(Address::from(U160::from_be_bytes(token.0)));
+        let is_proxy = self.simulator.is_proxy(Address::from(U160::from_be_bytes(token_addr.0)));
         if is_proxy {
-            info!("⚠️ {} is proxy", token);
-            self.honeypot.insert(token, true);
-            self.is_proxy.insert(token, true);
+            info!("⚠️ {} is proxy", token_addr);
+            self.honeypot.insert(token_addr, true);
+            self.is_proxy.insert(token_addr, true);
         }
     }
 
@@ -180,7 +182,106 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
         }
 
         for (_, token) in tokens.iter().enumerate() {
-            self.validate_token(*token, None).await;
+            self.validate_token_on_simple_transfer(*token, None).await;
+        }
+    }
+
+    pub async fn validate_token_on_simulate_swap(
+        &mut self,
+        token_addr: H160,
+        pool_addr: H160,
+        buy_tax_criteria: Option<U256>,
+        sell_tax_criteria: Option<U256>,
+    ) {
+        let buy_tax_criteria = buy_tax_criteria.unwrap_or(U256::from(5));
+        let sell_tax_criteria = sell_tax_criteria.unwrap_or(U256::from(5));
+        
+        self.simulator.deploy_simulator();
+
+        // seed the simulator with some safe token balance
+        let safe_token = self.safe_tokens.weth;
+
+        let amount_in_u32 = 1u32;
+        self.simulator.set_token_balance(
+            self.simulator.simulator_address,
+            safe_token,
+            WETH_DECIMALS,
+            WETH_BALANCE_SLOT,
+            amount_in_u32,
+        );
+
+        // buy with 0.1WETH 
+        let weth_amount_in = U256::from(10i64.pow(WETH_DECIMALS.sub(1).into()));
+        
+        // Buy Test
+        let buy_output = self.simulator.v2_simulate_swap(
+            weth_amount_in,
+            pool_addr,
+            safe_token,
+            token_addr,
+            true,
+        );
+        // (AmountOut, RealAmountOut)
+        let out = match buy_output {
+            Ok(out) => out,
+            Err(e) => {
+                info!("<BUY ERROR> {:?}", e);
+                self.honeypot.insert(token_addr, true);
+                return
+            }
+        };
+
+        let out_ratio = out.0.checked_sub(out.1).unwrap();
+        let buy_tax_rate =
+            out_ratio.checked_mul(U256::from(10000)).unwrap().checked_div(out.0).unwrap();
+        let buy_tax_rate_f64 = buy_tax_rate.as_u64() as f64 / 10000.0;
+        self.buy_tax.insert(token_addr, buy_tax_rate_f64);
+
+        if buy_tax_rate < buy_tax_criteria.mul(100) {
+            // Sell Test
+            let amount_in = out.1;
+            let sell_output = self.simulator.v2_simulate_swap(
+                amount_in,
+                pool_addr,
+                token_addr,
+                safe_token,
+                true,
+            );
+            let out = match sell_output {
+                Ok(out) => out,
+                Err(e) => {
+                    info!("<SELL ERROR> {:?}", e);
+                    self.honeypot.insert(token_addr, true);
+                    return
+                }
+            };
+
+            let out_ratio = out.0.checked_sub(out.1).unwrap();
+            let sell_tax_rate = out_ratio
+                .checked_mul(U256::from(10000))
+                .unwrap()
+                .checked_div(out.0)
+                .unwrap();
+            let sell_tax_rate_f64 = sell_tax_rate.as_u64() as f64 / 10000.0;
+            self.sell_tax.insert(token_addr, sell_tax_rate_f64);
+
+            if sell_tax_rate < sell_tax_criteria.mul(100) {
+                match get_token_info(self.simulator.provider.clone(), token_addr).await {
+                    Ok(info) => {
+                        info!(
+                            "Added safe token info ({}). Total: {:?} tokens",
+                            info.symbol,
+                            self.token_info.len()
+                        );
+                        self.token_info.insert(token_addr, info);
+                    }
+                    Err(_) => {}
+                }
+            } else {
+                self.honeypot.insert(token_addr, true);
+            }
+        } else {
+            self.honeypot.insert(token_addr, true);
         }
     }
 
