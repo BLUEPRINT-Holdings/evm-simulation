@@ -50,13 +50,8 @@ async fn main() -> Result<()> {
     let mut honeypot_filter = HoneypotFilter::new(provider.clone(), block.clone());
     honeypot_filter.setup().await;
 
-    // let token_addr = H160::from_str("0xdAC17F958D2ee523a2206206994597C13D831ec7").unwrap();
-    // bebe
-    // let token_addr = H160::from_str("0xadBB84eD017F9db0eEfD2F65A2AAB63513a2b724").unwrap();
+    // Buy: 5%, Sell: 5%
     let token_addr = H160::from_str("0x24EdDeD3f03abb2e9D047464294133378bddB596").unwrap();
-
-    // let pool_addr = H160::from_str("0x32A19Dfc769950cC2206bBeab9696034FF4C06e1").unwrap();
-    // let pool_addr = H160::from_str("0x6F338b7e6f5416Cc89a35cC146EF5ee824AB2a2D").unwrap();
     let pool_addr = H160::from_str("0x15842C52c5A8730F028708e3492e1ab0Be59Bd80").unwrap();
 
     honeypot_filter.validate_token_on_simulate_swap(token_addr, pool_addr, None, None).await;

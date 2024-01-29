@@ -208,7 +208,7 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
 
     pub async fn simulate_simple_transfer(&mut self, token: H160) -> Result<U256> {
         let amount_u32 = 10000;
-        let token_info = get_token_info(self.provider.clone(), token).await.unwrap();
+        let token_info = get_token_info(self.provider.clone(), token).await?;
         let amount = U256::from(amount_u32)
             .checked_mul(U256::from(10).pow(U256::from(token_info.decimals)))
             .unwrap();

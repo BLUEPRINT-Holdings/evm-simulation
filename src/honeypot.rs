@@ -133,8 +133,6 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
                 // using 111 as the error signal on tax rate
                 U256::from(111)
                 // NOTE: we don't define as honeypot due to the simple transfer error at this point
-                // self.honeypot.insert(token, true);
-                // return;
             }
         };
 
@@ -224,7 +222,7 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
         // (TargetedAmountOut, RealAfterBalance)
         // out.0 is TargetedAmountOut that is calculated using amountIn in arg
         // out.1 is the amount that is actually transfered to the simulator eoa address
-        let out = match buy_output {
+        let (expected_amount_out, actual_amount_out) = match buy_output {
             Ok(out) => out,
             Err(e) => {
                 info!("<BUY ERROR> {:?}", e);
@@ -233,23 +231,26 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
             }
         };
 
-        let out_ratio = out.0.checked_sub(out.1).unwrap();
-        let buy_tax_rate =
-            out_ratio.checked_mul(U256::from(10000)).unwrap().checked_div(out.0).unwrap();
+        let out_ratio = expected_amount_out.checked_sub(actual_amount_out).unwrap();
+        let buy_tax_rate = out_ratio
+            .checked_mul(U256::from(10000))
+            .unwrap()
+            .checked_div(expected_amount_out)
+            .unwrap();
         let buy_tax_rate_f64 = buy_tax_rate.as_u64() as f64 / 10000.0;
         self.buy_tax.insert(token_addr, buy_tax_rate_f64);
 
         if buy_tax_rate < buy_tax_criteria.mul(100) {
             // Sell Test
-            // Use out.1 as an amountIn arg for the sell swap so as to avoit calling set_token_balance 
+            // Use out.1 as an amountIn arg for the sell swap so as to avoit calling set_token_balance
             // and articulate the returning ratio against first buying amount
-            let amount_in = out.1;
+            let amount_in = actual_amount_out;
             // (TargetedAmountOut, RealAfterBalance)
             // out.0 is TargetedAmountOut that is calculated using amountIn in arg
             // out.1 is the amount that is actually transfered to the simulator eoa address
             let sell_output =
                 self.simulator.v2_simulate_swap(amount_in, pool_addr, token_addr, safe_token, true);
-            let out = match sell_output {
+            let (expected_amount_out, actual_amount_out) = match sell_output {
                 Ok(out) => out,
                 Err(e) => {
                     info!("<SELL ERROR> {:?}", e);
@@ -258,9 +259,12 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
                 }
             };
 
-            let out_ratio = out.0.checked_sub(out.1).unwrap();
-            let sell_tax_rate =
-                out_ratio.checked_mul(U256::from(10000)).unwrap().checked_div(out.0).unwrap();
+            let out_ratio = expected_amount_out.checked_sub(actual_amount_out).unwrap();
+            let sell_tax_rate = out_ratio
+                .checked_mul(U256::from(10000))
+                .unwrap()
+                .checked_div(expected_amount_out)
+                .unwrap();
             let sell_tax_rate_f64 = sell_tax_rate.as_u64() as f64 / 10000.0;
             self.sell_tax.insert(token_addr, sell_tax_rate_f64);
 
