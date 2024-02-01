@@ -17,6 +17,7 @@ use foundry_evm::{
     },
 };
 use std::{collections::BTreeSet, str::FromStr, sync::Arc};
+use thiserror::Error;
 
 use crate::constants::{IMPLEMENTATION_SLOTS, SIMULATOR_CODE};
 use crate::interfaces::ownable::OwnableABI;
@@ -59,6 +60,12 @@ pub struct TxResult {
 pub struct SimpleTransferResult {
     pub transfered_amount: U256,
     pub gas_used: u64,
+}
+
+#[derive(Error, Debug)]
+pub enum SimulateTransferError {
+    #[error("Simple transfer failed: {0}")]
+    TransferFailed(anyhow::Error),
 }
 
 impl<M: Middleware + 'static> EvmSimulator<M> {
@@ -206,6 +213,7 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         self.set_token_balance(self.owner, token, decimals, token_slot.1, balance);
     }
 
+    // Simulate a transfer
     pub async fn simulate_simple_transfer(&mut self, token: H160) -> Result<U256> {
         let amount_u32 = 10000;
         let token_info = get_token_info(self.provider.clone(), token).await?;
@@ -213,17 +221,27 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
             .checked_mul(U256::from(10).pow(U256::from(token_info.decimals)))
             .unwrap();
 
+        // Set the balance of the owner
         self.execute_set_token_balance(token, amount_u32, token_info.decimals).await;
-        self.approve(token, self.simulator_address, true).unwrap();
 
-        // Transfer Test
-        let transfer_result = self.simple_transfer(amount, token, true)?;
+        // Approve the simulator to spend the token
+        self.approve(token, self.simulator_address, true)?;
+
+        // Simulate transfer
+        let transfer_result = match self.simple_transfer(amount, token, true) {
+            Ok(result) => result,
+            Err(e) => return Err(SimulateTransferError::TransferFailed(e).into()),
+        };
 
         // TODO: Make a validation against gas cost
         // let gas_cost = out.1;
 
+        // Calculate the tax rate of the transfer
         let sent_amount = transfer_result.transfered_amount;
-        let reducted_out_amount = amount.checked_sub(sent_amount).unwrap();
+        let reducted_out_amount = match amount.checked_sub(sent_amount) {
+            Some(val) => val,
+            None => return Err(anyhow!("Overflow occured while calculating reducted amount")),
+        };
         let transfer_tax_rate =
             reducted_out_amount.checked_mul(U256::from(100)).unwrap().checked_div(amount).unwrap();
 
@@ -408,8 +426,8 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         };
 
         let value = if commit { self.call(tx)? } else { self.staticcall(tx)? };
-        let out = self.token.transfer_output(value.output)?;
-        Ok(out)
+        let success = self.token.transfer_output(value.output)?;
+        Ok(success)
     }
 
     pub fn simple_transfer(
@@ -430,9 +448,9 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
 
         let value = if commit { self.call(tx)? } else { self.staticcall(tx)? };
 
-        let out = self.simulator.simple_transfer_output(value.output)?;
+        let transfered_amount = self.simulator.simple_transfer_output(value.output)?;
 
-        Ok(SimpleTransferResult { transfered_amount: out, gas_used: value.gas_used })
+        Ok(SimpleTransferResult { transfered_amount, gas_used: value.gas_used })
     }
 
     // It calls owner() view function in the format of Ownable interface from OpenZeppelin
@@ -452,8 +470,8 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         };
 
         let value = self.staticcall(tx)?;
-        let out = self.ownable.owner_output(value.output)?;
-        Ok(out)
+        let owner_address = self.ownable.owner_output(value.output)?;
+        Ok(owner_address)
     }
 
     // Check the existence of an admin address for ERC20 contract.

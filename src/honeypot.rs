@@ -7,7 +7,7 @@ use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use crate::constants::{WETH_BALANCE_SLOT, WETH_DECIMALS};
 use crate::pools::Pool;
-use crate::simulator::EvmSimulator;
+use crate::simulator::{EvmSimulator, SimulateTransferError};
 use crate::tokens::{get_implementation, get_token_info, Token};
 use crate::trace::EvmTracer;
 
@@ -126,25 +126,25 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
         self.simulator.deploy_simulator();
 
         let simulate_transfer_res = self.simulator.simulate_simple_transfer(token_addr).await;
-        let simulated_transfer_tax_rate = match simulate_transfer_res {
-            Ok(out) => out,
-            Err(e) => {
-                info!("<Transfer ERROR>: {:?}", e);
-                // using 111 as the error signal on tax rate
-                U256::from(111)
-                // NOTE: we don't define as honeypot due to the simple transfer error at this point
+        match simulate_transfer_res {
+            Ok(tax_rate) => {
+                if tax_rate.ge(&transfer_tax_criteria) {
+                    info!("<Send ERROR> Transfer Tax Rate: {:?}", tax_rate);
+                    self.honeypot.insert(token_addr, true);
+                }
+
+                self.transfer_tax.insert(token_addr, tax_rate.as_u64() as f64 / 100.0);
             }
+            Err(e) => match e.downcast_ref::<SimulateTransferError>() {
+                Some(SimulateTransferError::TransferFailed(e)) => {
+                    info!("<Transfer ERROR>: {:?}", e);
+                    self.honeypot.insert(token_addr, true);
+                }
+                _ => {
+                    info!("Simulate transfer failed: {:?}", e);
+                }
+            },
         };
-
-        if simulated_transfer_tax_rate.ne(&U256::from(111))
-            && simulated_transfer_tax_rate.ge(&transfer_tax_criteria)
-        {
-            info!("<Send ERROR> Transfer Tax Rate: {:?}", simulated_transfer_tax_rate);
-            self.honeypot.insert(token_addr, true);
-        }
-
-        // NOTE: 1.11 means retrieving tax rate was failed
-        self.transfer_tax.insert(token_addr, simulated_transfer_tax_rate.as_u64() as f64 / 100.0);
 
         let is_proxy = self.simulator.is_proxy(Address::from(U160::from_be_bytes(token_addr.0)));
         if is_proxy {
