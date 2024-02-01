@@ -1,14 +1,12 @@
 use anyhow::Result;
 use cfmms::dex::DexVariant;
 use ethers::providers::{Middleware, Provider, Ws};
-use ethers::types::{BlockNumber, H160, U256};
+use ethers::types::{BlockNumber, H160};
 use log::info;
 use std::{str::FromStr, sync::Arc};
 
-use evm_simulation::arbitrage::{simulate_triangular_arbitrage, TriangularArbitrage};
 use evm_simulation::constants::Env;
 use evm_simulation::honeypot::HoneypotFilter;
-use evm_simulation::paths::generate_triangular_paths;
 use evm_simulation::pools::{load_all_pools, Pool};
 
 use evm_simulation::utils::setup_logger;
@@ -68,47 +66,6 @@ async fn main() -> Result<()> {
         })
         .collect();
     info!("Verified pools: {:?} pools", verified_pools.len());
-
-    let usdt = H160::from_str("0xdAC17F958D2ee523a2206206994597C13D831ec7").unwrap();
-    let arb_paths = generate_triangular_paths(&verified_pools, usdt);
-
-    let owner = H160::from_str("0x001a06BF8cE4afdb3f5618f6bafe35e9Fc09F187").unwrap();
-    let amount_in = U256::from(10).checked_mul(U256::from(10).pow(U256::from(6))).unwrap();
-    let balance_slot = honeypot_filter.balance_slots.get(&usdt).unwrap();
-    let target_token = honeypot_filter.safe_token_info.get(&usdt).unwrap();
-    for path in &arb_paths {
-        let arb = TriangularArbitrage {
-            amount_in,
-            path: path.clone(),
-            balance_slot: *balance_slot,
-            target_token: target_token.clone(),
-        };
-        match simulate_triangular_arbitrage(
-            arb,
-            provider.clone(),
-            owner,
-            block.number.unwrap(),
-            None,
-        ) {
-            Ok(_profit) => {}
-            Err(_e) => {}
-        }
-    }
-
-    // let (event_sender, _): (Sender<Event>, _) = broadcast::channel(512);
-
-    // let mut set = JoinSet::new();
-
-    // set.spawn(stream_new_blocks(provider.clone(), event_sender.clone()));
-    // set.spawn(stream_pending_transactions(
-    //     provider.clone(),
-    //     event_sender.clone(),
-    // ));
-    // set.spawn(event_handler(provider.clone(), event_sender.clone()));
-
-    // while let Some(res) = set.join_next().await {
-    //     info!("{:?}", res);
-    // }
 
     Ok(())
 }

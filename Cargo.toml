@@ -35,7 +35,6 @@ alloy-primitives = "0.5.0"
 colored = "2.0.0"
 log = "0.4.17"
 indicatif = "0.17.5"
-indoc = "2"
 fern = { version = "0.6.2", features = ["colored"] }
 chrono = "0.4.23"
 csv = "1.2.2"
