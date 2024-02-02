@@ -7,7 +7,7 @@ use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 use crate::constants::{WETH_BALANCE_SLOT, WETH_DECIMALS};
 use crate::pools::Pool;
-use crate::simulator::{EvmSimulator, SimulateTransferError};
+use crate::simulator::{EvmSimulator, SimpleTransferError};
 use crate::tokens::{get_implementation, get_token_info, Token};
 use crate::trace::EvmTracer;
 
@@ -135,8 +135,8 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
 
                 self.transfer_tax.insert(token_addr, tax_rate.as_u64() as f64 / 100.0);
             }
-            Err(e) => match e.downcast_ref::<SimulateTransferError>() {
-                Some(SimulateTransferError::TransferFailed(e)) => {
+            Err(e) => match e.downcast_ref::<SimpleTransferError>() {
+                Some(SimpleTransferError::TxFailed(_)) => {
                     info!("<Transfer ERROR>: {:?}", e);
                     self.honeypot.insert(token_addr, true);
                 }

@@ -63,9 +63,9 @@ pub struct SimpleTransferResult {
 }
 
 #[derive(Error, Debug)]
-pub enum SimulateTransferError {
-    #[error("Simple transfer failed: {0}")]
-    TransferFailed(anyhow::Error),
+pub enum SimpleTransferError {
+    #[error("Simple transfer call failed: {0}")]
+    TxFailed(anyhow::Error),
 }
 
 impl<M: Middleware + 'static> EvmSimulator<M> {
@@ -230,7 +230,7 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         // Simulate transfer
         let transfer_result = match self.simple_transfer(amount, token, true) {
             Ok(result) => result,
-            Err(e) => return Err(SimulateTransferError::TransferFailed(e).into()),
+            Err(e) => return Err(e),
         };
 
         // TODO: Make a validation against gas cost
@@ -446,7 +446,17 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
             gas_limit: 5000000,
         };
 
-        let value = if commit { self.call(tx)? } else { self.staticcall(tx)? };
+        let value = if commit {
+            match self.call(tx) {
+                Ok(result) => result,
+                Err(e) => return Err(SimpleTransferError::TxFailed(e).into()),
+            }
+        } else {
+            match self.staticcall(tx) {
+                Ok(result) => result,
+                Err(e) => return Err(SimpleTransferError::TxFailed(e).into()),
+            }
+        };
 
         let transfered_amount = self.simulator.simple_transfer_output(value.output)?;
 
