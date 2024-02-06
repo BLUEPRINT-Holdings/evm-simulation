@@ -68,6 +68,12 @@ pub enum SimpleTransferError {
     TxFailed(anyhow::Error),
 }
 
+#[derive(Error, Debug)]
+pub enum SwapError {
+    #[error("Swap call failed: {0}")]
+    TxFailed(anyhow::Error),
+}
+
 impl<M: Middleware + 'static> EvmSimulator<M> {
     pub fn new(provider: Arc<M>, owner: H160, block_number: U64) -> Self {
         let shared_backend = SharedBackend::spawn_backend_thread(
@@ -160,18 +166,16 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         self.evm.env.tx.value = tx.value.to_alloy();
         self.evm.env.tx.gas_limit = 5000000;
 
-        let result;
-
-        if commit {
-            result = match self.evm.transact_commit() {
+        let result = if commit {
+            match self.evm.transact_commit() {
                 Ok(result) => result,
                 Err(e) => return Err(anyhow!("EVM call failed: {:?}", e)),
-            };
+            }
         } else {
             let ref_tx =
                 self.evm.transact_ref().map_err(|e| anyhow!("EVM staticcall failed: {:?}", e))?;
-            result = ref_tx.result;
-        }
+            ref_tx.result
+        };
 
         let output = match result {
             ExecutionResult::Success { gas_used, gas_refunded, output, .. } => match output {
@@ -195,9 +199,14 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         self._call(tx, true)
     }
 
-    pub async fn execute_set_token_balance(&mut self, token: H160, balance: u32, decimals: u8) {
+    pub async fn execute_set_token_balance(
+        &mut self,
+        token: H160,
+        balance: u32,
+        decimals: u8,
+    ) -> Result<()> {
         let tracer = EvmTracer::new(self.provider.clone());
-        let chain_id = self.provider.get_chainid().await.unwrap();
+        let chain_id = self.provider.get_chainid().await?;
 
         let token_slot = tracer
             .find_balance_slot(
@@ -207,22 +216,23 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
                 U64::from(chain_id.as_u64()),
                 self.block_number.as_u64(),
             )
-            .await
-            .unwrap();
+            .await?;
 
-        self.set_token_balance(self.owner, token, decimals, token_slot.1, balance);
+        self.set_token_balance(self.owner, token, decimals, token_slot.1, balance)?;
+
+        Ok(())
     }
 
-    // Simulate a transfer
+    // Simulate a transfer and return the tax rate
     pub async fn simulate_simple_transfer(&mut self, token: H160) -> Result<U256> {
         let amount_u32 = 10000;
         let token_info = get_token_info(self.provider.clone(), token).await?;
         let amount = U256::from(amount_u32)
             .checked_mul(U256::from(10).pow(U256::from(token_info.decimals)))
-            .unwrap();
+            .ok_or(anyhow!("Overflow occured while calculating amount"))?;
 
         // Set the balance of the owner
-        self.execute_set_token_balance(token, amount_u32, token_info.decimals).await;
+        self.execute_set_token_balance(token, amount_u32, token_info.decimals).await?;
 
         // Approve the simulator to spend the token
         self.approve(token, self.simulator_address, true)?;
@@ -242,8 +252,11 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
             Some(val) => val,
             None => return Err(anyhow!("Overflow occured while calculating reducted amount")),
         };
-        let transfer_tax_rate =
-            reducted_out_amount.checked_mul(U256::from(100)).unwrap().checked_div(amount).unwrap();
+        let transfer_tax_rate = reducted_out_amount
+            .checked_mul(U256::from(100))
+            .unwrap()
+            .checked_div(amount)
+            .ok_or(anyhow!("Overflow occured while calculating tax rate"))?;
 
         // NOTE: should we return gas comsumption?
         Ok(transfer_tax_rate)
@@ -269,19 +282,21 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         decimals: u8,
         slot: u32,
         balance: u32,
-    ) {
+    ) -> Result<()> {
         let slot = keccak256(abi::encode(&[
             abi::Token::Address(account),
             abi::Token::Uint(U256::from(slot)),
         ]));
-        let target_balance =
-            rU256::from(balance).checked_mul(rU256::from(10).pow(rU256::from(decimals))).unwrap();
-        self.evm
-            .db
-            .as_mut()
-            .unwrap()
-            .insert_account_storage(token.to_alloy(), slot.into(), target_balance)
-            .unwrap();
+        let target_balance = rU256::from(balance)
+            .checked_mul(rU256::from(10).pow(rU256::from(decimals)))
+            .ok_or(anyhow!("Overflow occured while calculating balance"))?;
+        self.evm.db.as_mut().unwrap().insert_account_storage(
+            token.to_alloy(),
+            slot.into(),
+            target_balance,
+        )?;
+
+        Ok(())
     }
 
     pub fn token_balance_of(&mut self, token: H160, account: H160) -> Result<U256> {
@@ -354,7 +369,17 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
             value: U256::zero(),
             gas_limit: 5000000,
         };
-        let value = if commit { self.call(tx)? } else { self.staticcall(tx)? };
+        let value = if commit {
+            match self.call(tx) {
+                Ok(result) => result,
+                Err(e) => return Err(SwapError::TxFailed(e).into()),
+            }
+        } else {
+            match self.staticcall(tx) {
+                Ok(result) => result,
+                Err(e) => return Err(SwapError::TxFailed(e).into()),
+            }
+        };
         let out = self.simulator.v2_simulate_swap_output(value.output)?;
         Ok(out)
     }
@@ -394,7 +419,7 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         let calldata = self.token.approve_input(spender)?;
 
         let tx = Tx {
-            caller: self.owner.into(),
+            caller: self.owner,
             transact_to: token,
             data: calldata.0,
             value: U256::zero(),
@@ -418,7 +443,7 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         let calldata = self.token.transfer_input(recipient, amount)?;
 
         let tx = Tx {
-            caller: self.owner.into(),
+            caller: self.owner,
             transact_to: token,
             data: calldata.0,
             value: U256::zero(),
@@ -501,7 +526,7 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
                 continue;
             }
 
-            let owner = H160::from_slice(&&be_vec[12..]);
+            let owner = H160::from_slice(&be_vec[12..]);
             if !owner.is_zero() {
                 possible_admins.push(owner);
             }
@@ -531,11 +556,9 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         }
 
         let results = futures::future::join_all(tasks).await;
-        for result in results {
-            if let Some(address) = result {
-                possible_admins.push(address);
-            }
-        }
+        results.into_iter().flatten().for_each(|address| {
+            possible_admins.push(address);
+        });
 
         Ok(possible_admins)
     }

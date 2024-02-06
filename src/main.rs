@@ -1,9 +1,9 @@
 use anyhow::Result;
 use cfmms::dex::DexVariant;
 use ethers::providers::{Middleware, Provider, Ws};
-use ethers::types::{BlockNumber, H160};
+use ethers::types::BlockNumber;
 use log::info;
-use std::{str::FromStr, sync::Arc};
+use std::sync::Arc;
 
 use evm_simulation::constants::Env;
 use evm_simulation::honeypot::HoneypotFilter;
@@ -49,10 +49,10 @@ async fn main() -> Result<()> {
     honeypot_filter.setup().await;
 
     // Buy: 5%, Sell: 5%
-    let token_addr = H160::from_str("0x24EdDeD3f03abb2e9D047464294133378bddB596").unwrap();
-    let pool_addr = H160::from_str("0x15842C52c5A8730F028708e3492e1ab0Be59Bd80").unwrap();
+    // let token_addr = H160::from_str("0x24EdDeD3f03abb2e9D047464294133378bddB596").unwrap();
+    // let pool_addr = H160::from_str("0x15842C52c5A8730F028708e3492e1ab0Be59Bd80").unwrap();
 
-    honeypot_filter.validate_token_on_simulate_swap(token_addr, pool_addr, None, None).await;
+    // honeypot_filter.validate_token_on_simulate_swap(token_addr, pool_addr, None, None).await;
     // honeypot_filter.filter_tokens(&pools[0..5000].to_vec()).await;
 
     let verified_pools: Vec<Pool> = pools
