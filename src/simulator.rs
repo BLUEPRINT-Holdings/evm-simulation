@@ -232,10 +232,13 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
             .ok_or(anyhow!("Overflow occured while calculating amount"))?;
 
         // Set the balance of the owner
-        self.execute_set_token_balance(token, amount_u32, token_info.decimals).await?;
+        self.execute_set_token_balance(token, amount_u32, token_info.decimals)
+            .await
+            .map_err(|e| anyhow!("Failed to set the balance of the owner: {e:?}"))?;
 
         // Approve the simulator to spend the token
-        self.approve(token, self.simulator_address, true)?;
+        self.approve(token, self.simulator_address, true)
+            .map_err(|e| anyhow!("Failed to approve the simulator: {e:?}"))?;
 
         // Simulate transfer
         let transfer_result = match self.simple_transfer(amount, token, true) {
@@ -248,10 +251,9 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
 
         // Calculate the tax rate of the transfer
         let sent_amount = transfer_result.transfered_amount;
-        let reducted_out_amount = match amount.checked_sub(sent_amount) {
-            Some(val) => val,
-            None => return Err(anyhow!("Overflow occured while calculating reducted amount")),
-        };
+        let reducted_out_amount = amount
+            .checked_sub(sent_amount)
+            .ok_or(anyhow!("Overflow occured while calculating reducted out amount"))?;
         let transfer_tax_rate = reducted_out_amount
             .checked_mul(U256::from(100))
             .unwrap()
@@ -461,7 +463,10 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         sending_token: H160,
         commit: bool,
     ) -> Result<SimpleTransferResult> {
-        let calldata = self.simulator.simple_transfer_input(amount, sending_token)?;
+        let calldata = self
+            .simulator
+            .simple_transfer_input(amount, sending_token)
+            .map_err(|e| anyhow!("Failed to encode calldata: {:?}", e))?;
 
         let tx = Tx {
             caller: self.owner,
@@ -472,18 +477,15 @@ impl<M: Middleware + 'static> EvmSimulator<M> {
         };
 
         let value = if commit {
-            match self.call(tx) {
-                Ok(result) => result,
-                Err(e) => return Err(SimpleTransferError::TxFailed(e).into()),
-            }
+            self.call(tx).map_err(|e| SimpleTransferError::TxFailed(e))?
         } else {
-            match self.staticcall(tx) {
-                Ok(result) => result,
-                Err(e) => return Err(SimpleTransferError::TxFailed(e).into()),
-            }
+            self.staticcall(tx).map_err(|e| SimpleTransferError::TxFailed(e))?
         };
 
-        let transfered_amount = self.simulator.simple_transfer_output(value.output)?;
+        let transfered_amount = self
+            .simulator
+            .simple_transfer_output(value.output)
+            .map_err(|e| anyhow!("Failed to decode output: {:?}", e))?;
 
         Ok(SimpleTransferResult { transfered_amount, gas_used: value.gas_used })
     }
