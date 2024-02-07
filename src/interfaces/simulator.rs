@@ -15,7 +15,7 @@ impl SimulatorABI {
             parse_abi(&[
                 "function v2SimulateSwap(uint256,address,address,address) external returns (uint256, uint256)",
                 "function getAmountOut(uint256,uint256,uint256) external returns (uint256)",
-                "function simpleTransfer(uint256,address) external returns (uint256, uint256)",
+                "function simpleTransfer(uint256,address) external returns (uint256)",
             ]).unwrap()
         );
         Self { abi }
