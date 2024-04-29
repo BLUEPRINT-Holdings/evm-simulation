@@ -26,7 +26,7 @@ impl SafeTokens {
     }
 }
 
-pub struct HoneypotFilter<M> {
+pub struct HoneypotFilter<M: Clone> {
     pub simulator: EvmSimulator<M>,
     pub safe_tokens: SafeTokens,
     pub token_info: HashMap<H160, Token>,
@@ -38,7 +38,7 @@ pub struct HoneypotFilter<M> {
     is_proxy: HashMap<H160, bool>,
 }
 
-impl<M: Middleware + 'static> HoneypotFilter<M> {
+impl<M: Middleware + 'static + std::clone::Clone> HoneypotFilter<M> {
     pub fn new(provider: Arc<M>, block: Block<H256>) -> Self {
         let owner = H160::from_str("0x001a06BF8cE4afdb3f5618f6bafe35e9Fc09F187").unwrap();
         let simulator = EvmSimulator::new(provider.clone(), owner, block.number.unwrap());
@@ -279,7 +279,7 @@ impl<M: Middleware + 'static> HoneypotFilter<M> {
                 // seed the simulator with some safe token balance
                 let safe_token_info = self.safe_token_info.get(&safe_token).unwrap();
                 let safe_token_slot = self.balance_slots.get(&safe_token).unwrap();
-
+                
                 self.simulator.set_token_balance(
                     self.simulator.simulator_address,
                     safe_token,

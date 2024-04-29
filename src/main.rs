@@ -1,8 +1,11 @@
-use anyhow::Result;
+use anyhow::{Result, anyhow};
 use cfmms::dex::DexVariant;
 use ethers::providers::{Middleware, Provider, Ws};
-use ethers::types::BlockNumber;
+use ethers::types::{Block, BlockNumber, H160, H256, U256};
+use evm_simulation::gmx::GmxPlayground;
 use log::info;
+use std::env;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use evm_simulation::constants::Env;
@@ -18,7 +21,6 @@ async fn main() -> Result<()> {
     setup_logger()?;
 
     info!("[⚡️🦀⚡️ Starting EVM simulation]");
-
     let env = Env::new();
     // let ws = Ws::connect(&env.wss_url).await.unwrap();
     let wss_url = format!("{}?key={}", &env.wss_url, &env.api_key);
@@ -28,7 +30,48 @@ async fn main() -> Result<()> {
     let provider = Arc::new(Provider::new(ws));
 
     let block = provider.get_block(BlockNumber::Latest).await.unwrap().unwrap();
+    let args: Vec<String> = env::args().collect();
 
+    // args[0] はプログラム自体のパスです。args[1] が最初の引数
+    if args.len() > 1 {
+        match args[1].as_str() {
+            "gmxv2" => {
+                tokio::spawn(async move {
+                    println!("GMX V2 test started.");
+                    gmx_v2_test(provider.clone(), block.clone()).await;
+                });
+            }
+            "honeypot" => {
+                tokio::spawn(async move {
+                    honeypot_test(env, provider.clone(), block.clone()).await;
+                });
+            }
+            _ => println!("Invalid input. Please use 'gmxv2' or 'uniswap'."),
+        }
+    } else {
+        println!("No string was received.");
+        return Err(anyhow!("No string was received."));
+    }
+
+    Ok(())
+}
+
+async fn gmx_v2_test(provider: Arc<Provider<Ws>>, block:  Block<H256>) {
+    let mut gmx_playground = GmxPlayground::new(provider.clone(), block.clone());
+    let eth_amount = 1;
+    // set eth balance to owner address
+    gmx_playground.simulator.set_eth_balance(eth_amount);
+    // in case of using eth for deposit, dont need to approve before
+    // directly defining weth token address for now
+    let collateral_token = H160::from_str("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2").unwrap();
+    let collateral_amount = U256::from(1000000000);
+    let size_delta_usd = U256::from(1000000000);
+    let create_position_res = gmx_playground.create_short_position(collateral_token, collateral_amount, size_delta_usd);
+    println!("Create Position res: {:?}", create_position_res);
+
+}
+
+async fn honeypot_test(env: Env, provider: Arc<Provider<Ws>>, block:  Block<H256>) {
     let factories = vec![
         (
             // Uniswap v2
@@ -43,7 +86,7 @@ async fn main() -> Result<()> {
             10794229u64,
         ),
     ];
-    let pools = load_all_pools(env.wss_url.clone(), factories).await?;
+    let pools = load_all_pools(env.wss_url.clone(), factories).await.unwrap();
 
     let mut honeypot_filter = HoneypotFilter::new(provider.clone(), block.clone());
     honeypot_filter.setup().await;
@@ -66,6 +109,4 @@ async fn main() -> Result<()> {
         })
         .collect();
     info!("Verified pools: {:?} pools", verified_pools.len());
-
-    Ok(())
 }

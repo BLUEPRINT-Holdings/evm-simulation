@@ -7,3 +7,4 @@ pub mod simulator;
 pub mod tokens;
 pub mod trace;
 pub mod utils;
+pub mod gmx;
