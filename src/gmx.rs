@@ -2,22 +2,12 @@
 // NOTE: Consider using Abigen to generate abi bindings
 // Also, create enum for u8 values like order_type, decrease_position_swap_type
 use anyhow::{anyhow, Result};
+use ethers_contract::{abigen, Contract};
 use std::{collections::BTreeSet, str::FromStr, sync::Arc};
-use ethers::prelude::Lazy;
+use ethers::{abi::Abi, prelude::Lazy};
 use serde::{Deserialize, Serialize};
 use ethers::types::{Address, Block, BlockNumber, H160, H256, U256, Bytes};
 use ethers_providers::Middleware;
-use foundry_evm::{
-    fork::{BlockchainDb, BlockchainDbMeta, SharedBackend},
-    revm::{
-        db::{CacheDB, Database},
-        primitives::{
-            keccak256, AccountInfo, Bytecode, ExecutionResult, Output, TransactTo, KECCAK_EMPTY,
-            U256 as rU256,
-        },
-        EVM,
-    },
-};
 
 use crate::{interfaces::gmx::{CreateOrderParams, CreateOrderParamsAddresses, CreateOrderParamsNumbers, GmxV2ABI}, simulator::{EvmSimulator, Tx}};
 
@@ -27,24 +17,30 @@ pub static ORDER_VAULT: Lazy<H160> = Lazy::new(|| H160::from_str("0x31eF83a530Fd
 pub static READER: Lazy<H160> = Lazy::new(|| H160::from_str("0xf60becbba223EEA9495Da3f606753867eC10d139").unwrap());
 
 // on arbitrum
-pub static WETH: Lazy<H160> = Lazy::new(|| H160::from_str("0x47c031236e19d024b42f8AE6780E44A573170703").unwrap());
+pub static WETH: Lazy<H160> = Lazy::new(|| H160::from_str("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1").unwrap());
 
 // Define the struct for establishing virtual playground for testing gmx v2 contract
 // TODO: make the simulator smaller by modifying the unnecessary abis into optioin
 // TODO: Refine properties of GmxPlayground struct including the price decimals, token decimals, etc
+abigen!(GmxV2ExchangeRouter, "./src/interfaces/abi/gmx_v2/exchange_router.json");
 pub struct GmxPlayground<M: Clone>{
     pub simulator: EvmSimulator<M>,
-    pub gmx_v2: GmxV2ABI, 
-
+    // pub gmx_v2: GmxV2ABI, 
+    pub exchange_router: GmxV2ExchangeRouter<M>,
 }
 
 impl<M: Middleware + 'static + std::clone::Clone> GmxPlayground<M> {
     pub fn new(provider: Arc<M>, block: Block<H256>) -> Self {
         let owner = H160::from_str("0x001a06BF8cE4afdb3f5618f6bafe35e9Fc09F187").unwrap();
-        let simulator = EvmSimulator::new(provider.clone(), owner, block.number.unwrap()); 
+        let simulator = EvmSimulator::new(provider.clone(), owner, block.number.unwrap());         
+        let exchange_router = GmxV2ExchangeRouter::new(
+            *EXCHANGE_ROUTER,
+            provider.clone(),
+        );        
         Self {
             simulator,
-            gmx_v2: GmxV2ABI::new(),
+            // gmx_v2: GmxV2ABI::new(),
+            exchange_router,
         }
     }
 
@@ -57,13 +53,13 @@ impl<M: Middleware + 'static + std::clone::Clone> GmxPlayground<M> {
             market_token = H160::from_str("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336").unwrap();
         }
         let create_order_params_addresses = CreateOrderParamsAddresses {
-            receiver: H160::zero(),
+            receiver: self.simulator.owner,
             callback_contract: H160::zero(),
             ui_fee_receiver: H160::zero(),
             market: market_token,
             initial_collateral_token: collateral_token,
             // swap path is empty
-            swap_path: vec![],
+            swap_path: vec![market_token], // if collateral token is long token of market, put market address here
         };
         let acceptable_price = U256::zero();
 
@@ -86,16 +82,16 @@ impl<M: Middleware + 'static + std::clone::Clone> GmxPlayground<M> {
             order_type: 2,
             decrease_position_swap_type: 0,
             is_long: false,
-            should_unwrap_native_token: true,
-            referral_code: H256::default(),
+            should_unwrap_native_token: false,
+            referral_code: H256::zero(),
         };
-        self.gmx_v2.create_order_input(create_order_params).unwrap()
+        self.exchange_router.encode("createOrder", (create_order_params,)).unwrap()
 
     }
 
     pub fn send_wnt(&self, amount: U256) -> Bytes {
         let receiver = *ORDER_VAULT;
-        let calldata = self.gmx_v2.send_wnt_input(receiver, amount).unwrap();
+        let calldata = self.exchange_router.encode("sendWnt", (receiver, amount)).unwrap();
         calldata
     }
 
@@ -103,7 +99,7 @@ impl<M: Middleware + 'static + std::clone::Clone> GmxPlayground<M> {
     pub fn create_short_position(&self, collateral_token: H160, collateral_amount: U256, size_delta_usd: U256) -> Result<Vec<Bytes>> {
         let send_wnt = self.send_wnt(collateral_amount);
         let create_order = self.create_order(collateral_token, collateral_amount, size_delta_usd);
-        let calldata = self.gmx_v2.multicall_input(vec![send_wnt, create_order]).unwrap();
+        let calldata = self.exchange_router.encode("multicall",vec![send_wnt, create_order]).unwrap();
         let tx = Tx {
             caller: self.simulator.owner,
             transact_to: *EXCHANGE_ROUTER,
@@ -117,7 +113,7 @@ impl<M: Middleware + 'static + std::clone::Clone> GmxPlayground<M> {
             Err(e) => return Err(e),
         };
         println!("result: {:?}", result);
-        let outputs = self.gmx_v2.abi.decode("multicall", result.output).unwrap();
+        let outputs = self.exchange_router.decode("multicall", result.output).unwrap();
         Ok(outputs)
     }
 

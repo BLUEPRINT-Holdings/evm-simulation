@@ -1,7 +1,7 @@
 use anyhow::Result;
 use ethers::abi::parse_abi;
 use ethers::prelude::BaseContract;
-use ethers_contract::EthAbiType;
+use ethers_contract::{abigen, EthAbiType};
 use serde::{Deserialize, Serialize};
 use ethers::types::{Address, H256, U256, H160,Bytes};
 use bytes::Bytes as OutputBytes;
@@ -105,8 +105,8 @@ impl GmxV2ABI {
             parse_abi(&[
                 // ExchangeRounter Contract
                 "function multicall(bytes[] calldata data) external payable virtual returns (bytes[] memory results)",
-                // "function createOrder(IBaseOrderUtils.CreateOrderParams calldata params) external override payable nonReentrant returns (bytes32)",
-                "function createOrder(((address,address,address,address,address,address[]),(uint256,uint256,uint256,uint256,uint256,uint256,uint256),uint8,uint8,bool,bool,bytes32)) external payable returns (bytes32)",
+                // "function createOrder(IBaseOrderUtils.CreateOrderParams calldata params) external payable returns (bytes32)",
+                // "function createOrder(((address,address,address,address,address,address[]),(uint256,uint256,uint256,uint256,uint256,uint256,uint256),uint8,uint8,bool,bool,bytes32)) external payable returns (bytes32)",
                 "function sendWnt(address receiver, uint256 amount) external payable",
 
                 // reader contract: 0x22199a49A999c351eF7927602CFB187ec3cae489
@@ -115,7 +115,7 @@ impl GmxV2ABI {
             .unwrap(),
         );
         println!("GmxV2ABI::new end");
-        Self { abi }
+        Self {  abi}
     }
 
     pub fn multicall_input(&self, data: Vec<Bytes>) -> Result<Bytes> {

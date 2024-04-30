@@ -46,7 +46,7 @@ async fn main() -> Result<()> {
                     honeypot_test(env, provider.clone(), block.clone()).await;
                 });
             }
-            _ => println!("Invalid input. Please use 'gmxv2' or 'uniswap'."),
+            _ => println!("Invalid input. Please use 'gmxv2' or 'honeypot'."),
         }
     } else {
         println!("No string was received.");
@@ -63,7 +63,7 @@ async fn gmx_v2_test(provider: Arc<Provider<Ws>>, block:  Block<H256>) {
     gmx_playground.simulator.set_eth_balance(eth_amount);
     // in case of using eth for deposit, dont need to approve before
     // directly defining weth token address for now
-    let collateral_token = H160::from_str("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2").unwrap();
+    let collateral_token = H160::from_str("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1").unwrap();
     let collateral_amount = U256::from(1000000000);
     let size_delta_usd = U256::from(1000000000);
     let create_position_res = gmx_playground.create_short_position(collateral_token, collateral_amount, size_delta_usd);
