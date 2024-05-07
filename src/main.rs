@@ -2,7 +2,8 @@ use anyhow::{Result, anyhow};
 use cfmms::dex::DexVariant;
 use ethers::providers::{Middleware, Provider, Ws};
 use ethers::types::{Block, BlockNumber, H160, H256, U256};
-use evm_simulation::gmx::GmxPlayground;
+use ethers_providers::Http;
+use evm_simulation::gmx::{fetch_token_price, GmxPlayground};
 use log::info;
 use std::env;
 use std::str::FromStr;
@@ -27,7 +28,10 @@ async fn main() -> Result<()> {
     let wss_url = Url::parse(&wss_url).expect("Failed to parse WSS URL");
     let ws = Ws::connect(wss_url).await.unwrap();
 
-    let provider = Arc::new(Provider::new(ws));
+    // let provider = Arc::new(Provider::new(ws));
+    // let http_url = Url::parse(&env.https_url).expect("Failed to parse HTTP URL");
+
+    let provider = Arc::new(Provider::<Http>::try_from(&env.https_url).unwrap());
 
     let block = provider.get_block(BlockNumber::Latest).await.unwrap().unwrap();
     let args: Vec<String> = env::args().collect();
@@ -36,10 +40,8 @@ async fn main() -> Result<()> {
     if args.len() > 1 {
         match args[1].as_str() {
             "gmxv2" => {
-                tokio::spawn(async move {
-                    println!("GMX V2 test started.");
-                    gmx_v2_test(provider.clone(), block.clone()).await;
-                });
+                println!("GMX V2 test started.");
+                gmx_v2_test(provider, block.clone()).await;
             }
             "honeypot" => {
                 tokio::spawn(async move {
@@ -56,22 +58,39 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn gmx_v2_test(provider: Arc<Provider<Ws>>, block:  Block<H256>) {
+async fn gmx_v2_test(provider: Arc<Provider<Http>>, block:  Block<H256>) {
+    let prices = fetch_token_price("ETH".to_string()).await;
+    println!("Prices: {:?}", prices.unwrap());
     let mut gmx_playground = GmxPlayground::new(provider.clone(), block.clone());
     let eth_amount = 1;
     // set eth balance to owner address
     gmx_playground.simulator.set_eth_balance(eth_amount);
+    let eth_balance = gmx_playground.simulator.get_eth_balance();
+    println!("ETH Balance: {:?}", eth_balance);
+
+    // let usdc = H160::from_str("0xaf88d065e77c8cC2239327C5EDb3A432268e5831").unwrap();
+    // gmx_playground.simulator.set_token_balance(gmx_playground.simulator.owner,usdc, 18, U256::from(1000000000));
+
     // in case of using eth for deposit, dont need to approve before
     // directly defining weth token address for now
-    let collateral_token = H160::from_str("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1").unwrap();
-    let collateral_amount = U256::from(1000000000);
-    let size_delta_usd = U256::from(1000000000);
-    let create_position_res = gmx_playground.create_short_position(collateral_token, collateral_amount, size_delta_usd);
+    let collateral_token = "ETH";
+    let collateral_amount = 0.5;
+    let size_delta_usd = 1000_f64;
+    let create_position_res = gmx_playground.create_short_position(collateral_token, collateral_amount, size_delta_usd).await;
+    // let res = gmx_playground.simulator.provider.call(tx, None).await;
     println!("Create Position res: {:?}", create_position_res);
+    // let market_token = H160::from_str("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336").unwrap();
 
+    // See ETH is consumed for deposit
+    let eth_balance = gmx_playground.simulator.get_eth_balance();
+    println!("ETH Balance: {:?}", eth_balance);
+
+    let positions = gmx_playground.get_account_positions();
+    // let position_info = gmx_playground.get_position_info(market_token);
+    // println!("Position Info: {:?}", position_info);    
 }
 
-async fn honeypot_test(env: Env, provider: Arc<Provider<Ws>>, block:  Block<H256>) {
+async fn honeypot_test(env: Env, provider: Arc<Provider<Http>>, block:  Block<H256>) {
     let factories = vec![
         (
             // Uniswap v2
@@ -110,3 +129,4 @@ async fn honeypot_test(env: Env, provider: Arc<Provider<Ws>>, block:  Block<H256
         .collect();
     info!("Verified pools: {:?} pools", verified_pools.len());
 }
+

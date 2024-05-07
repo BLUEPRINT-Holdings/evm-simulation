@@ -1,11 +1,14 @@
 use anyhow::Result;
-use ethers::abi::parse_abi;
 use ethers::prelude::BaseContract;
+use ethers::utils::keccak256;
 use ethers_contract::{abigen, EthAbiType};
 use serde::{Deserialize, Serialize};
 use ethers::types::{Address, H256, U256, H160,Bytes};
 use bytes::Bytes as OutputBytes;
+use ethers_core::abi::{Tokenizable, Detokenize, Tokenize};
+// use ethers_core::abi::Tokenizable;
 
+// abigen!(GmxV2Reader, "./src/interfaces/abi/gmx_v2/reader.json");
 #[derive(Clone)]
 pub struct GmxV2ABI {
     pub abi: BaseContract,
@@ -91,6 +94,7 @@ pub struct MarketPrices {
     pub index_token_price: PriceProps,
     pub long_token_price: PriceProps,
     pub short_token_price: PriceProps,
+
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize, EthAbiType)]
@@ -98,54 +102,109 @@ pub struct PositionInfo {
     pub position_props: bool, // TODO: Change to PositionProps
 }
 
-impl GmxV2ABI {
-    pub fn new() -> Self {
-        println!("GmxV2ABI::new");
-        let abi = BaseContract::from(
-            parse_abi(&[
-                // ExchangeRounter Contract
-                "function multicall(bytes[] calldata data) external payable virtual returns (bytes[] memory results)",
-                // "function createOrder(IBaseOrderUtils.CreateOrderParams calldata params) external payable returns (bytes32)",
-                // "function createOrder(((address,address,address,address,address,address[]),(uint256,uint256,uint256,uint256,uint256,uint256,uint256),uint8,uint8,bool,bool,bytes32)) external payable returns (bytes32)",
-                "function sendWnt(address receiver, uint256 amount) external payable",
+pub struct TokenInfo {
+    pub name: &'static str,
+    pub address: &'static str,
+    pub decimals: u8,
+}
 
-                // reader contract: 0x22199a49A999c351eF7927602CFB187ec3cae489
-                "function getPositionInfo(DataStore dataStore,IReferralStorage referralStorage,bytes32 positionKey,MarketUtils.MarketPrices memory prices,uint256 sizeDeltaUsd,address uiFeeReceiver,bool usePositionSizeAsSizeDeltaUsd,) public view returns (ReaderUtils.PositionInfo memory)",
-            ])
-            .unwrap(),
-        );
-        println!("GmxV2ABI::new end");
-        Self {  abi}
+pub enum Token {
+    ETH,
+    BTC
+}
+
+impl Token {
+    pub fn info(&self) -> TokenInfo {
+        match self {
+            Token::ETH => TokenInfo { name: "ETH", address: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", decimals: 18 },
+            Token::BTC => TokenInfo { name: "BTC", address: "0x47904963fc8b2340414262125aF798B9655E58Cd", decimals: 8 },
+        }
     }
 
-    pub fn multicall_input(&self, data: Vec<Bytes>) -> Result<Bytes> {
-        let calldata = self.abi.encode("multicall", data)?;
-        Ok(calldata)
+    pub fn from_name(name: &str) -> Option<Token> {
+        match name {
+            "ETH" => Some(Token::ETH),
+            "BTC" => Some(Token::BTC),
+            _ => None
+        }
     }
 
-    pub fn multicall_output(&self, output: OutputBytes) -> Result<Vec<Bytes>> {
-        let results: Vec<Bytes> = self.abi.decode("multicall", output)?;
-        Ok(results)
+    pub fn address_from_name(name: &str) -> Option<String> {
+        Token::from_name(name)
+            .map(|token| token.info().address.to_string())
     }
+}
 
-    pub fn create_order_input(&self, params: CreateOrderParams) -> Result<Bytes> {
-        let calldata = self.abi.encode("createOrder", params)?;
-        Ok(calldata)
-    }
+// impl GmxV2ABI {
+//     pub fn new() -> Self {
+//         println!("GmxV2ABI::new");
+//         let abi = BaseContract::from(
+//             parse_abi(&[
+//                 // ExchangeRounter Contract
+//                 "function multicall(bytes[] calldata data) external payable virtual returns (bytes[] memory results)",
+//                 // "function createOrder(IBaseOrderUtils.CreateOrderParams calldata params) external payable returns (bytes32)",
+//                 // "function createOrder(((address,address,address,address,address,address[]),(uint256,uint256,uint256,uint256,uint256,uint256,uint256),uint8,uint8,bool,bool,bytes32)) external payable returns (bytes32)",
+//                 "function sendWnt(address receiver, uint256 amount) external payable",
 
-    pub fn send_wnt_input(&self, receiver: Address, amount: U256) -> Result<Bytes> {
-        let calldata = self.abi.encode("sendWnt", (receiver, amount))?;
-        Ok(calldata)
-    }
+//                 // reader contract: 0x22199a49A999c351eF7927602CFB187ec3cae489
+//                 "function getPositionInfo(DataStore dataStore,IReferralStorage referralStorage,bytes32 positionKey,MarketUtils.MarketPrices memory prices,uint256 sizeDeltaUsd,address uiFeeReceiver,bool usePositionSizeAsSizeDeltaUsd,) public view returns (ReaderUtils.PositionInfo memory)",
+//             ])
+//             .unwrap(),
+//         );
+//         println!("GmxV2ABI::new end");
+//         Self {  abi}
+//     }
 
-    pub fn get_position_info_input(&self, data_store: Address, referral_storage: Address, position_key: H256, prices: MarketPrices, size_delta_usd: U256, ui_fee_receiver: Address, use_position_size_as_size_delta_usd: bool) -> Result<Bytes> {
-        let calldata = self.abi.encode("getPositionInfo", (data_store, referral_storage, position_key, prices, size_delta_usd, ui_fee_receiver, use_position_size_as_size_delta_usd))?;
-        Ok(calldata)
-    }
+//     pub fn multicall_input(&self, data: Vec<Bytes>) -> Result<Bytes> {
+//         let calldata = self.abi.encode("multicall", data)?;
+//         Ok(calldata)
+//     }
 
-    pub fn get_position_info_output(&self, output: OutputBytes) -> Result<PositionInfo> {
-        let position_info: PositionInfo = self.abi.decode("getPositionInfo", output)?;
-        Ok(position_info)
-    }
+//     pub fn multicall_output(&self, output: OutputBytes) -> Result<Vec<Bytes>> {
+//         let results: Vec<Bytes> = self.abi.decode("multicall", output)?;
+//         Ok(results)
+//     }
 
+//     pub fn create_order_input(&self, params: CreateOrderParams) -> Result<Bytes> {
+//         let calldata = self.abi.encode("createOrder", params)?;
+//         Ok(calldata)
+//     }
+
+//     pub fn send_wnt_input(&self, receiver: Address, amount: U256) -> Result<Bytes> {
+//         let calldata = self.abi.encode("sendWnt", (receiver, amount))?;
+//         Ok(calldata)
+//     }
+
+//     pub fn get_position_info_input(&self, data_store: Address, referral_storage: Address, position_key: H256, prices: MarketPrices, size_delta_usd: U256, ui_fee_receiver: Address, use_position_size_as_size_delta_usd: bool) -> Result<Bytes> {
+//         let calldata = self.abi.encode("getPositionInfo", (data_store, referral_storage, position_key, prices, size_delta_usd, ui_fee_receiver, use_position_size_as_size_delta_usd))?;
+//         Ok(calldata)
+//     }
+
+//     pub fn get_position_info_output(&self, output: OutputBytes) -> Result<PositionInfo> {
+//         let position_info: PositionInfo = self.abi.decode("getPositionInfo", output)?;
+//         Ok(position_info)
+//     }
+
+// }
+
+
+use ethers::abi::Token as AbiToken;
+
+pub fn get_position_key(account: H160, market: H160, collateral_token: H160, is_long: bool) -> H256 {
+    let data_values: Vec<AbiToken> = vec![
+        AbiToken::Address(account),
+        AbiToken::Address(market),
+        AbiToken::Address(collateral_token),
+        AbiToken::Bool(is_long),
+    ];
+
+    let hash_hex = hash_data(data_values);
+    // Convert hex string to H256
+    H256::from_slice(&hex::decode(hash_hex).expect("Invalid hex string"))
+}
+
+pub fn hash_data(data_values: Vec<AbiToken>) -> String {
+    let encoded_bytes = ethers::abi::encode(&data_values);
+    let hash = keccak256(encoded_bytes);
+    hex::encode(hash)
 }

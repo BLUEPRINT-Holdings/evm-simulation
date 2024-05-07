@@ -25,7 +25,7 @@ pub fn get_env(key: &str) -> String {
 
 #[derive(Debug, Clone)]
 pub struct Env {
-    // pub https_url: String,
+    pub https_url: String,
     pub wss_url: String,
     pub chain_id: U64,
     pub api_key: String,
@@ -34,7 +34,7 @@ pub struct Env {
 impl Env {
     pub fn new() -> Self {
         Env {
-            // https_url: get_env("HTTPS_URL"),
+            https_url: get_env("HTTPS_URL"),
             wss_url: get_env("WSS_URL"),
             chain_id: U64::from_str(&get_env("CHAIN_ID")).unwrap(),
             api_key: get_env("API_KEY"),
