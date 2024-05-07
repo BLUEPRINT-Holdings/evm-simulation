@@ -564,5 +564,4 @@ impl<M: Middleware + 'static + std::clone::Clone> EvmSimulator<M> {
 
         Ok(possible_admins)
     }
-
 }

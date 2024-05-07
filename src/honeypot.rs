@@ -279,7 +279,7 @@ impl<M: Middleware + 'static + std::clone::Clone> HoneypotFilter<M> {
                 // seed the simulator with some safe token balance
                 let safe_token_info = self.safe_token_info.get(&safe_token).unwrap();
                 let safe_token_slot = self.balance_slots.get(&safe_token).unwrap();
-                
+
                 self.simulator.set_token_balance(
                     self.simulator.simulator_address,
                     safe_token,

@@ -1,11 +1,11 @@
 use anyhow::Result;
+use bytes::Bytes as OutputBytes;
 use ethers::prelude::BaseContract;
+use ethers::types::{Address, Bytes, H160, H256, U256};
 use ethers::utils::keccak256;
 use ethers_contract::{abigen, EthAbiType};
+use ethers_core::abi::{Detokenize, Tokenizable, Tokenize};
 use serde::{Deserialize, Serialize};
-use ethers::types::{Address, H256, U256, H160,Bytes};
-use bytes::Bytes as OutputBytes;
-use ethers_core::abi::{Tokenizable, Detokenize, Tokenize};
 // use ethers_core::abi::Tokenizable;
 
 // abigen!(GmxV2Reader, "./src/interfaces/abi/gmx_v2/reader.json");
@@ -43,7 +43,7 @@ pub struct CreateOrderParamsNumbers {
 pub struct CreateOrderParams {
     pub addresses: CreateOrderParamsAddresses,
     pub numbers: CreateOrderParamsNumbers,
-    pub order_type: u8, // Enumの値
+    pub order_type: u8,                  // Enumの値
     pub decrease_position_swap_type: u8, // Enumの値
     pub is_long: bool,
     pub should_unwrap_native_token: bool,
@@ -94,7 +94,6 @@ pub struct MarketPrices {
     pub index_token_price: PriceProps,
     pub long_token_price: PriceProps,
     pub short_token_price: PriceProps,
-
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize, EthAbiType)]
@@ -110,14 +109,22 @@ pub struct TokenInfo {
 
 pub enum Token {
     ETH,
-    BTC
+    BTC,
 }
 
 impl Token {
     pub fn info(&self) -> TokenInfo {
         match self {
-            Token::ETH => TokenInfo { name: "ETH", address: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1", decimals: 18 },
-            Token::BTC => TokenInfo { name: "BTC", address: "0x47904963fc8b2340414262125aF798B9655E58Cd", decimals: 8 },
+            Token::ETH => TokenInfo {
+                name: "ETH",
+                address: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
+                decimals: 18,
+            },
+            Token::BTC => TokenInfo {
+                name: "BTC",
+                address: "0x47904963fc8b2340414262125aF798B9655E58Cd",
+                decimals: 8,
+            },
         }
     }
 
@@ -125,13 +132,12 @@ impl Token {
         match name {
             "ETH" => Some(Token::ETH),
             "BTC" => Some(Token::BTC),
-            _ => None
+            _ => None,
         }
     }
 
     pub fn address_from_name(name: &str) -> Option<String> {
-        Token::from_name(name)
-            .map(|token| token.info().address.to_string())
+        Token::from_name(name).map(|token| token.info().address.to_string())
     }
 }
 
@@ -187,10 +193,14 @@ impl Token {
 
 // }
 
-
 use ethers::abi::Token as AbiToken;
 
-pub fn get_position_key(account: H160, market: H160, collateral_token: H160, is_long: bool) -> H256 {
+pub fn get_position_key(
+    account: H160,
+    market: H160,
+    collateral_token: H160,
+    is_long: bool,
+) -> H256 {
     let data_values: Vec<AbiToken> = vec![
         AbiToken::Address(account),
         AbiToken::Address(market),

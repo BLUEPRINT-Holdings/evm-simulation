@@ -1,4 +1,5 @@
 pub mod constants;
+pub mod gmx;
 pub mod honeypot;
 pub mod interfaces;
 pub mod paths;
@@ -7,4 +8,3 @@ pub mod simulator;
 pub mod tokens;
 pub mod trace;
 pub mod utils;
-pub mod gmx;

@@ -1,4 +1,4 @@
-use anyhow::{Result, anyhow};
+use anyhow::{anyhow, Result};
 use cfmms::dex::DexVariant;
 use ethers::providers::{Middleware, Provider, Ws};
 use ethers::types::{Block, BlockNumber, H160, H256, U256};
@@ -58,7 +58,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn gmx_v2_test(provider: Arc<Provider<Http>>, block:  Block<H256>) {
+async fn gmx_v2_test(provider: Arc<Provider<Http>>, block: Block<H256>) {
     let prices = fetch_token_price("ETH".to_string()).await;
     println!("Prices: {:?}", prices.unwrap());
     let mut gmx_playground = GmxPlayground::new(provider.clone(), block.clone());
@@ -76,7 +76,9 @@ async fn gmx_v2_test(provider: Arc<Provider<Http>>, block:  Block<H256>) {
     let collateral_token = "ETH";
     let collateral_amount = 0.5;
     let size_delta_usd = 1000_f64;
-    let create_position_res = gmx_playground.create_short_position(collateral_token, collateral_amount, size_delta_usd).await;
+    let create_position_res = gmx_playground
+        .create_short_position(collateral_token, collateral_amount, size_delta_usd)
+        .await;
     // let res = gmx_playground.simulator.provider.call(tx, None).await;
     println!("Create Position res: {:?}", create_position_res);
     // let market_token = H160::from_str("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336").unwrap();
@@ -87,10 +89,10 @@ async fn gmx_v2_test(provider: Arc<Provider<Http>>, block:  Block<H256>) {
 
     let positions = gmx_playground.get_account_positions();
     // let position_info = gmx_playground.get_position_info(market_token);
-    // println!("Position Info: {:?}", position_info);    
+    // println!("Position Info: {:?}", position_info);
 }
 
-async fn honeypot_test(env: Env, provider: Arc<Provider<Http>>, block:  Block<H256>) {
+async fn honeypot_test(env: Env, provider: Arc<Provider<Http>>, block: Block<H256>) {
     let factories = vec![
         (
             // Uniswap v2
@@ -129,4 +131,3 @@ async fn honeypot_test(env: Env, provider: Arc<Provider<Http>>, block:  Block<H2
         .collect();
     info!("Verified pools: {:?} pools", verified_pools.len());
 }
-
