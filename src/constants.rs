@@ -29,6 +29,7 @@ pub struct Env {
     pub wss_url: String,
     pub chain_id: U64,
     pub api_key: String,
+    pub priv_key: String,
 }
 
 impl Env {
@@ -36,8 +37,10 @@ impl Env {
         Env {
             https_url: get_env("HTTPS_URL"),
             wss_url: get_env("WSS_URL"),
+            // Don't use from_str for U64, it returns hex value of the string
             chain_id: U64::from_str(&get_env("CHAIN_ID")).unwrap(),
             api_key: get_env("API_KEY"),
+            priv_key: get_env("PRIV_KEY"),
         }
     }
 }

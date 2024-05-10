@@ -35,6 +35,7 @@ pub static READER: Lazy<H160> =
 // on arbitrum
 pub static WETH: Lazy<H160> =
     Lazy::new(|| H160::from_str("0x82aF49447D8a07e3bd95BD0d56f35241523fBab1").unwrap());
+
 const USD_SCALE_FACTOR: u8 = 30; // Scaling factor for USD values
 
 // Define the struct for establishing virtual playground for testing gmx v2 contract
@@ -59,6 +60,7 @@ pub struct GmxPlayground<M: Clone> {
 
 impl<M: Middleware + 'static + std::clone::Clone> GmxPlayground<M> {
     pub fn new(provider: Arc<M>, block: Block<H256>) -> Self {
+        // NOTE: Change the owner address to the address you want to use
         let owner = H160::from_str("0x001a06BF8cE4afdb3f5618f6bafe35e9Fc09F187").unwrap();
         let simulator = EvmSimulator::new(provider.clone(), owner, block.number.unwrap());
         let exchange_router = GmxV2ExchangeRouter::new(*EXCHANGE_ROUTER, provider.clone());
@@ -77,6 +79,7 @@ impl<M: Middleware + 'static + std::clone::Clone> GmxPlayground<M> {
         collateral_amount: U256,
         size_delta_usd: f64,
         long: bool,
+        exec_fee: U256,
     ) -> Bytes {
         // define market token based on collateral token
         // if collateral token is weth, then market token is 0x70d95587d40A2caf56bd97485aB3Eec10Bee6336
@@ -92,26 +95,20 @@ impl<M: Middleware + 'static + std::clone::Clone> GmxPlayground<M> {
             market: market_token,
             initial_collateral_token: collateral_token,
             // swap path is empty
-            swap_path: vec![market_token], // if collateral token is long token of market, put market address here
+            swap_path: vec![], // if collateral token is long token of market, put market address here
         };
-        // let acceptable_price = U256::zero();
 
-        let mut exec_fee = U256::zero();
-        if collateral_token == *WETH {
-            exec_fee = collateral_amount;
-        }
-        let price_decimal = 12;
         // Directly define ETH as quote token for price fetch for now
         // let current_index_token_price = fetch_token_price("ETH".to_string()).await.unwrap();
 
         // NOTE: We can modify the acceptable price by changing the percentage in production
         // let acceptable_price = U256::from_str(&current_index_token_price.max_price_full).unwrap().checked_mul(U256::from(95)).unwrap().checked_div(U256::from(100)).unwrap();
-        let acceptable_price = U256::from_str("3199821466130000").unwrap();
-
+        let price_decimal = 30 - Token::from_name("ETH").unwrap().info().decimals;
+        let acceptable_price = expand_decimals(3000.0, price_decimal);
         let size_in_usd_in_decimals = expand_decimals(size_delta_usd, USD_SCALE_FACTOR);
         let create_order_params_numbers = CreateOrderParamsNumbers {
             size_delta_usd: size_in_usd_in_decimals,
-            initial_collateral_delta_amount: U256::zero(),
+            initial_collateral_delta_amount: collateral_amount,
             trigger_price: U256::zero(), // no need for market order
             acceptable_price,
             execution_fee: exec_fee,
@@ -137,39 +134,63 @@ impl<M: Middleware + 'static + std::clone::Clone> GmxPlayground<M> {
     }
 
     // TODO: create position calling multicall containing the logic of sendWnt, createOrder
-    pub async fn create_short_position(
+    pub async fn create_short_position_tx(
         &mut self,
         collateral_token: &str,
         collateral_amount: f64,
         size_delta_usd: f64,
-    ) -> Result<bool> {
+        exec_fee: U256,
+    ) -> Result<Eip1559TransactionRequest> {
         let collateral_token_addr =
             H160::from_str(&Token::from_name(collateral_token).unwrap().info().address).unwrap();
         let collateral_token_deciamls = Token::from_name(collateral_token).unwrap().info().decimals;
         let collateral_amount = expand_decimals(collateral_amount, collateral_token_deciamls);
-        let send_wnt = self.send_wnt(collateral_amount);
+        let sending_amount = collateral_amount.checked_add(exec_fee).unwrap();
+        let send_wnt = self.send_wnt(sending_amount);
         let create_order = self
-            .create_order(collateral_token_addr, collateral_amount, size_delta_usd, false)
+            .create_order(collateral_token_addr, collateral_amount, size_delta_usd, false, exec_fee)
             .await;
 
         // approve Collateral token for router contract
-        let approve_tx = self.simulator.approve(collateral_token_addr, *EXCHANGE_ROUTER, true)?;
-        println!("Approve tx: {:?}", approve_tx);
+        // NOTE: This is not necessary for ETH
+        // let approve_tx = self.simulator.approve(collateral_token_addr, *EXCHANGE_ROUTER, true)?;
 
         let calldata =
-            self.exchange_router.encode("multicall", vec![send_wnt, create_order]).unwrap();
-        let tx = Tx {
-            caller: self.simulator.owner,
-            transact_to: *EXCHANGE_ROUTER,
-            data: calldata.0,
-            gas_limit: 1000000,
-            value: collateral_amount,
-        };
+            self.exchange_router.multicall(vec![send_wnt, create_order]).calldata().unwrap();
+        // let tx = Tx {
+        //     caller: self.simulator.owner,
+        //     transact_to: *EXCHANGE_ROUTER,
+        //     data: calldata.0,
+        //     gas_limit: 1000000,
+        //     value: collateral_amount,
+        // };
 
-        let result = self.simulator._call(tx, true)?;
-        println!("result: {:?}", result);
-        // createOrder response is meaningless
-        Ok(true)
+        // let result = self.simulator._call(tx, true)?;
+        // println!("result: {:?}", result);
+        // NOTE: createOrder response is meaningless
+
+        let priority_fee: U256 = U256::from(100000000);
+        let gas_price: U256 = self.simulator.provider.get_gas_price().await.unwrap();
+        let max_fee_per_gas: U256 = gas_price + priority_fee;
+        let gas_estimate: U256 = U256::from(4000000);
+        let gas_limit: U256 = gas_estimate + 100000; // Buffer
+        let nonce = self.simulator.provider.get_transaction_count(self.simulator.owner, None).await.unwrap();
+        let chain_id = self.simulator.provider.get_chainid().await.unwrap(); // 42161
+    
+        let typed_tx: Eip1559TransactionRequest = ethers::types::transaction::eip1559::Eip1559TransactionRequest {
+            from: Some(self.simulator.owner),
+            to: Some(NameOrAddress::Address(*EXCHANGE_ROUTER)).into(),
+            nonce: Some(nonce),
+            max_priority_fee_per_gas: Some(priority_fee),
+            max_fee_per_gas: Some(max_fee_per_gas),
+            gas: Some(gas_limit),
+            value: Some(sending_amount),
+            data: Some(calldata),
+            access_list: ethers::types::transaction::eip2930::AccessList(Vec::new()),
+            chain_id: Some(chain_id.as_u64().into()),
+        };
+        
+        Ok(typed_tx)
     }
 
     pub fn get_account_positions(&mut self) {
