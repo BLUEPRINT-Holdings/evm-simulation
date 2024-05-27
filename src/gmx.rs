@@ -5,14 +5,16 @@ use ethers::types::{Address, Block, BlockNumber, Bytes, H160, H256, U256};
 use ethers::{
     abi::Abi,
     prelude::Lazy,
-    types::{transaction::eip2930::AccessList, Eip1559TransactionRequest, NameOrAddress},
+    types::{Eip1559TransactionRequest, NameOrAddress},
     utils::keccak256,
 };
 use ethers_contract::{abigen, Contract};
 use ethers_providers::Middleware;
+use num_bigint::BigUint;
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeSet, ops::Mul, str::FromStr, sync::Arc};
 
+use crate::interfaces::gmx::PositionInfo as IPositionInfo;
 use crate::{
     interfaces::gmx::{
         get_position_key, CreateOrderParams, CreateOrderParamsAddresses, CreateOrderParamsNumbers,
@@ -30,7 +32,7 @@ pub static REFERRAL_STORAGE: Lazy<H160> =
 pub static ORDER_VAULT: Lazy<H160> =
     Lazy::new(|| H160::from_str("0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5").unwrap());
 pub static READER: Lazy<H160> =
-    Lazy::new(|| H160::from_str("0x2b43c90D1B727cEe1Df34925bcd5Ace52Ec37694").unwrap());
+    Lazy::new(|| H160::from_str("0xf60becbba223EEA9495Da3f606753867eC10d139").unwrap());
 
 // on arbitrum
 pub static WETH: Lazy<H160> =
@@ -174,26 +176,64 @@ impl<M: Middleware + 'static + std::clone::Clone> GmxPlayground<M> {
         let max_fee_per_gas: U256 = gas_price + priority_fee;
         let gas_estimate: U256 = U256::from(4000000);
         let gas_limit: U256 = gas_estimate + 100000; // Buffer
-        let nonce = self.simulator.provider.get_transaction_count(self.simulator.owner, None).await.unwrap();
+        let nonce = self
+            .simulator
+            .provider
+            .get_transaction_count(self.simulator.owner, None)
+            .await
+            .unwrap();
         let chain_id = self.simulator.provider.get_chainid().await.unwrap(); // 42161
-    
-        let typed_tx: Eip1559TransactionRequest = ethers::types::transaction::eip1559::Eip1559TransactionRequest {
-            from: Some(self.simulator.owner),
-            to: Some(NameOrAddress::Address(*EXCHANGE_ROUTER)).into(),
-            nonce: Some(nonce),
-            max_priority_fee_per_gas: Some(priority_fee),
-            max_fee_per_gas: Some(max_fee_per_gas),
-            gas: Some(gas_limit),
-            value: Some(sending_amount),
-            data: Some(calldata),
-            access_list: ethers::types::transaction::eip2930::AccessList(Vec::new()),
-            chain_id: Some(chain_id.as_u64().into()),
-        };
-        
+
+        let typed_tx: Eip1559TransactionRequest =
+            ethers::types::transaction::eip1559::Eip1559TransactionRequest {
+                from: Some(self.simulator.owner),
+                to: Some(NameOrAddress::Address(*EXCHANGE_ROUTER)).into(),
+                nonce: Some(nonce),
+                max_priority_fee_per_gas: Some(priority_fee),
+                max_fee_per_gas: Some(max_fee_per_gas),
+                gas: Some(gas_limit),
+                value: Some(sending_amount),
+                data: Some(calldata),
+                access_list: ethers::types::transaction::eip2930::AccessList(Vec::new()),
+                chain_id: Some(chain_id.as_u64().into()),
+            };
+
         Ok(typed_tx)
     }
 
-    pub fn get_account_positions(&mut self) {
+    pub async fn fill_tx_fields(&mut self, calldata: Bytes) -> Result<Eip1559TransactionRequest> {
+        let priority_fee: U256 = U256::from(100000000);
+        let gas_price: U256 = self.simulator.provider.get_gas_price().await.unwrap();
+        let max_fee_per_gas: U256 = gas_price + priority_fee;
+        let gas_estimate: U256 = U256::from(4000000);
+        let gas_limit: U256 = gas_estimate + 100000; // Buffer
+        let nonce = self
+            .simulator
+            .provider
+            .get_transaction_count(self.simulator.owner, None)
+            .await
+            .unwrap();
+        
+        let chain_id = self.simulator.provider.get_chainid().await.unwrap(); // 42161
+
+        let typed_tx: Eip1559TransactionRequest =
+            ethers::types::transaction::eip1559::Eip1559TransactionRequest {
+                from: Some(self.simulator.owner),
+                to: Some(NameOrAddress::Address(*READER)).into(),
+                nonce: Some(nonce),
+                max_priority_fee_per_gas: Some(priority_fee),
+                max_fee_per_gas: Some(max_fee_per_gas),
+                gas: Some(gas_limit),
+                value: Some(U256::zero()),
+                data: Some(calldata),
+                access_list: ethers::types::transaction::eip2930::AccessList(Vec::new()),
+                chain_id: Some(chain_id.as_u64().into()),
+            };
+
+        Ok(typed_tx)
+    }
+
+    pub fn get_account_positions(&mut self) -> Bytes {
         let data_store = *DATA_STORE;
         let owner: Address = self.simulator.owner;
         let start_index = U256::from(0);
@@ -202,20 +242,20 @@ impl<M: Middleware + 'static + std::clone::Clone> GmxPlayground<M> {
             .reader
             .encode("getAccountPositions", (data_store, owner, start_index, end_index))
             .unwrap();
-        let tx = Tx {
-            caller: self.simulator.owner,
-            transact_to: *READER,
-            data: query_call.0,
-            gas_limit: 1000000,
-            value: U256::zero(),
-        };
-        let result = self.simulator._call(tx, true);
-        println!("result: {:?}", result);
-        // let outputs = self.reader.decode("getAccountPositions", result.unwrap().output).unwrap();
+        return query_call;
+        // let tx = Tx {
+        //     caller: self.simulator.owner,
+        //     transact_to: *READER,
+        //     data: query_call.0,
+        //     gas_limit: 1000000,
+        //     value: U256::zero(),
+        // };
+        // let result = self.simulator._call(tx, true);
+        // let outputs: Vec<PositionProps> = self.reader.decode("getAccountPositions", result.unwrap().output).unwrap();
         // println!("Account Positions: {:?}", outputs);
     }
 
-    pub fn get_position_info(&mut self, market_token: H160) {
+    pub async fn get_position_info_calldata(&mut self, market_token: H160) -> Bytes {
         let data_store = *DATA_STORE;
         let referral_storage = *REFERRAL_STORAGE;
         // Assume the position is short
@@ -223,18 +263,21 @@ impl<M: Middleware + 'static + std::clone::Clone> GmxPlayground<M> {
         let collateral_token = *WETH;
         let position_key =
             get_position_key(self.simulator.owner, market_token, collateral_token, false);
+        // println!("Position Key: {:?}", position_key);
         let size_delta_usd = U256::zero();
         let ui_fee_receiver = H160::zero();
         let use_position_size_as_size_delta_usd = true;
         // Index Token is Long Token
-        let price_decimal = 12;
-        let eth_price = expand_decimals(3115_f64, price_decimal);
-        let usdc_price = expand_decimals(1_f64, price_decimal);
+        let eth_prices = fetch_token_price("ETH".to_string()).await.unwrap();
+        let usdc_prices = fetch_token_price("USDC".to_string()).await.unwrap();
+        // index prices can be any numbers because it doens't affect the important results
+        let index_prices = PriceProps { min: U256::from_dec_str("3865").unwrap(), max: U256::from_dec_str("3890").unwrap() };
         let market_prices = MarketPrices {
-            index_token_price: PriceProps { min: eth_price, max: eth_price },
-            long_token_price: PriceProps { min: eth_price, max: eth_price },
-            short_token_price: PriceProps { min: usdc_price, max: usdc_price },
+            index_token_price: index_prices,
+            long_token_price: PriceProps{ min: eth_prices.min_price_full, max: eth_prices.max_price_full},
+            short_token_price: PriceProps { min: usdc_prices.min_price_full, max: usdc_prices.max_price_full},
         };
+        // print!("Market Prices: {:?}", market_prices);
         let query_call = self
             .reader
             .encode(
@@ -250,17 +293,49 @@ impl<M: Middleware + 'static + std::clone::Clone> GmxPlayground<M> {
                 ),
             )
             .unwrap();
-        let tx = Tx {
-            caller: self.simulator.owner,
-            transact_to: *READER,
-            data: query_call.0,
-            gas_limit: 1000000,
-            value: U256::zero(),
-        };
-        let result = self.simulator._call(tx, true);
-        println!("result: {:?}", result);
+        // let tx = Tx {
+        //     caller: self.simulator.owner,
+        //     transact_to: *READER,
+        //     data: query_call.clone().0,
+        //     gas_limit: 1000000,
+        //     value: U256::zero(),
+        // };
+        // Execution on simulation
+        // let result = self.simulator._call(tx, false);
+        // println!("result: {:?}", result);
+
+        return query_call
         // let outputs = self.reader.decode("getPositionInfo", result.unwrap().output).unwrap();
         // println!("Position Info: {:?}", outputs);
+    }
+
+    pub async fn get_accrued_funding_fee_in_usd(&self, position_info: IPositionInfo) -> U256 {
+        let long_token_funding_amount = position_info.fees.funding.claimable_long_token_amount;
+        let short_token_funding_amount = position_info.fees.funding.claimable_short_token_amount;
+        // Assume we are using collateral in long token
+        let collateral_token_addr = format!("{:?}", position_info.position.addresses.collateral_token);
+        let collateral_token_info = Token::from_address(&collateral_token_addr).unwrap().info();
+        // println!("Collateral Token Info: {:?}", collateral_token_info);
+        let collateral_token_decimals = collateral_token_info.decimals;
+        let collateral_token_name = collateral_token_info.name;
+        let long_token_prices = fetch_token_price(collateral_token_name.to_string()).await.unwrap();
+        let short_token_prices = fetch_token_price("USDC".to_string()).await.unwrap();
+        let long_token_funding_in_usd = mul_div(
+            long_token_funding_amount,
+            long_token_prices.min_price_full,
+            U256::from(10).pow(U256::from(collateral_token_decimals)),
+        ).unwrap();
+        // println!("Long Token Funding in USD: {:?}", long_token_funding_in_usd);
+
+        let funding_in_usd = long_token_funding_in_usd.checked_add(
+            mul_div(
+                short_token_funding_amount,
+                short_token_prices.max_price_full,
+                U256::from(10).pow(U256::from(6)), // Short token must be USDC so 6 decimals
+            ).unwrap(),
+        );
+
+        funding_in_usd.unwrap()
     }
 }
 
@@ -325,8 +400,8 @@ pub struct ApiResponse {
 #[derive(Deserialize, Debug)]
 pub struct TokenPriceFromApiResponse {
     pub token_symbol: String,
-    pub min_price_full: String,
-    pub max_price_full: String,
+    pub min_price_full: U256,
+    pub max_price_full: U256,
 }
 
 #[derive(Deserialize)]
@@ -349,8 +424,6 @@ pub async fn fetch_token_price(
     // Deserialize the response text to ApiResponse
     let response_json: ApiResponse = serde_json::from_str(&response_text)?;
 
-    println!("Searching for token: {}", index_token);
-
     // Find the relevant price data for the specified token
     for price_data in response_json.signed_prices {
         if price_data.token_symbol == index_token {
@@ -359,11 +432,34 @@ pub async fn fetch_token_price(
 
             return Ok(TokenPriceFromApiResponse {
                 token_symbol: price_data.token_symbol,
-                min_price_full: min_price,
-                max_price_full: max_price,
+                min_price_full: U256::from_dec_str(&min_price).unwrap(),
+                max_price_full: U256::from_dec_str(&max_price).unwrap(),
             });
         }
     }
 
     Err("Token not found in price data".into())
+}
+
+// pub fn calculate_accured_funding_in_usd(long_funding_fee_per_size: U256, short_funding_fee_per_size: U256, long_token: String) -> BigUint {
+//     let long_funding_fee_per_size = long_funding_fee_per_size;
+//     let short_funding_fee_per_size = short_funding_fee_per_size;
+//     let long_token_prices = fetch_token_price(long_token).unwrap();
+//     let short_token_prices = fetch_token_price("USDC".to_string()).unwrap();
+
+
+//     let funding_fee_per_size = if long_token == "ETH" {
+//         long_funding_fee_per_size
+//     } else {
+//         short_funding_fee_per_size
+//     };
+//     funding_fee_per_size
+// }
+
+pub fn mul_div(value: U256, numerator: U256, denominator: U256) -> Option<U256> {
+    // Perform the multiplication
+    let result = value.checked_mul(numerator).unwrap();
+    println!("Result: {:?}", result);
+    // Perform the division and return the result
+    result.checked_div(denominator)
 }

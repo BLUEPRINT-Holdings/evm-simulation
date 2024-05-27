@@ -42,6 +42,9 @@ url = "2.4.1"
 thiserror = "1.0.56"
 reqwest = "0.12.4"
 
+num-bigint = "0.4.0"
+num-traits = "0.2.14"
+
 [patch.crates-io]
 ethers = { git = "https://github.com/gakonst/ethers-rs", rev = "f0e5b194f09c533feb10d1a686ddb9e5946ec107" }
 ethers-core = { git = "https://github.com/gakonst/ethers-rs", rev = "f0e5b194f09c533feb10d1a686ddb9e5946ec107" }

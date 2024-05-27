@@ -1,3 +1,4 @@
+use alloy_primitives::{Hasher, Keccak};
 use anyhow::Result;
 use bytes::Bytes as OutputBytes;
 use ethers::prelude::BaseContract;
@@ -49,40 +50,6 @@ pub struct CreateOrderParams {
     pub should_unwrap_native_token: bool,
     pub referral_code: H256,
 }
-
-// For getAccountPositions
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct Addresses {
-    pub account: Address,
-    pub market: Address,
-    pub collateral_token: Address,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct Numbers {
-    pub size_in_usd: U256,
-    pub size_in_tokens: U256,
-    pub collateral_amount: U256,
-    pub borrowing_factor: U256,
-    pub funding_fee_amount_per_size: U256,
-    pub long_token_claimable_funding_amount_per_size: U256,
-    pub short_token_claimable_funding_amount_per_size: U256,
-    pub increased_at_block: U256,
-    pub decreased_at_block: U256,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct Flags {
-    pub is_long: bool,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct PositionProps {
-    pub addresses: Addresses,
-    pub numbers: Numbers,
-    pub flags: Flags,
-}
-
 #[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize, EthAbiType)]
 pub struct PriceProps {
     pub min: U256,
@@ -96,11 +63,7 @@ pub struct MarketPrices {
     pub short_token_price: PriceProps,
 }
 
-#[derive(Clone, Debug, Default, Eq, PartialEq, Deserialize, Serialize, EthAbiType)]
-pub struct PositionInfo {
-    pub position_props: bool, // TODO: Change to PositionProps
-}
-
+#[derive(Debug)]
 pub struct TokenInfo {
     pub name: &'static str,
     pub address: &'static str,
@@ -110,6 +73,7 @@ pub struct TokenInfo {
 pub enum Token {
     ETH,
     BTC,
+    USDC,
 }
 
 impl Token {
@@ -125,6 +89,21 @@ impl Token {
                 address: "0x47904963fc8b2340414262125aF798B9655E58Cd",
                 decimals: 8,
             },
+            Token::USDC => TokenInfo {
+                name: "USDC",
+                address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+                decimals: 6,
+            },
+        }
+    }
+
+    pub fn from_address(address: &str) -> Option<Token> {
+        println!("address: {:?}", address);
+        match address {
+            "0x82af49447d8a07e3bd95BD0d56f35241523fbab1" => Some(Token::ETH),
+            "0x47904963fc8b2340414262125af798B9655e58cd" => Some(Token::BTC),
+            "0xaf88d065e77c8cc2239327c5edb3A432268e5831" => Some(Token::USDC),
+            _ => None,
         }
     }
 
@@ -132,6 +111,7 @@ impl Token {
         match name {
             "ETH" => Some(Token::ETH),
             "BTC" => Some(Token::BTC),
+            "USDC" => Some(Token::USDC),
             _ => None,
         }
     }
@@ -139,6 +119,119 @@ impl Token {
     pub fn address_from_name(name: &str) -> Option<String> {
         Token::from_name(name).map(|token| token.info().address.to_string())
     }
+}
+
+
+// for getAccountPositioins
+#[derive(Debug, Serialize, Deserialize,  EthAbiType)]
+pub struct PositionAddresses {
+    pub account: Address,
+    pub market: Address,
+    pub collateral_token: Address,
+}
+
+#[derive(Debug, Serialize, Deserialize, EthAbiType)]
+pub struct PositionProps {
+    pub addresses: PositionAddresses,
+    pub numbers: PositionNumbers,
+    pub flags: PositionFlags,
+}
+
+#[derive(Debug, Serialize, Deserialize, EthAbiType)]
+pub struct AddressInfo {
+    pub account: Address,
+    pub market: Address,
+    pub collateral_token: Address,
+}
+
+#[derive(Debug, Serialize, Deserialize, EthAbiType)]
+pub struct PositionNumbers {
+    pub size_in_usd: U256,
+    pub size_in_tokens: U256,
+    pub collateral_amount: U256,
+    pub borrowing_factor: U256,
+    pub funding_fee_amount_per_size: U256,
+    pub long_token_claimable_funding_amount_per_size: U256,
+    pub short_token_claimable_funding_amount_per_size: U256,
+    pub increased_at_block: U256,
+    pub decreased_at_block: U256,
+}
+
+#[derive(Debug, Serialize, Deserialize, EthAbiType)]
+pub struct PositionFlags {
+    pub is_long: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, EthAbiType)]
+pub struct PositionReferralFees {
+    pub referral_code: [u8; 32],
+    pub affiliate: Address,
+    pub trader: Address,
+    pub total_rebate_factor: U256,
+    pub trader_discount_factor: U256,
+    pub total_rebate_amount: U256,
+    pub trader_discount_amount: U256,
+    pub affiliate_reward_amount: U256,
+}
+
+#[derive(Debug, Serialize, Deserialize, EthAbiType)]
+pub struct PositionFundingFees {
+    pub funding_fee_amount: U256,
+    pub claimable_long_token_amount: U256,
+    pub claimable_short_token_amount: U256,
+    pub latest_funding_fee_amount_per_size: U256,
+    pub latest_long_token_claimable_funding_amount_per_size: U256,
+    pub latest_short_token_claimable_funding_amount_per_size: U256,
+}
+
+#[derive(Debug, Serialize, Deserialize, EthAbiType)]
+pub struct PositionBorrowingFees {
+    pub borrowing_fee_usd: U256,
+    pub borrowing_fee_amount: U256,
+    pub borrowing_fee_receiver_factor: U256,
+    pub borrowing_fee_amount_for_fee_receiver: U256,
+}
+
+#[derive(Debug, Serialize, Deserialize, EthAbiType)]
+pub struct PositionUiFees {
+    pub ui_fee_receiver: Address,
+    pub ui_fee_receiver_factor: U256,
+    pub ui_fee_amount: U256,
+}
+
+#[derive(Debug, Serialize, Deserialize, EthAbiType)]
+pub struct PositionFees {
+    pub referral: PositionReferralFees,
+    pub funding: PositionFundingFees,
+    pub borrowing: PositionBorrowingFees,
+    pub ui: PositionUiFees,
+    pub collateral_token_price: PriceProps,
+    pub position_fee_factor: U256,
+    pub protocol_fee_amount: U256,
+    pub position_fee_receiver_factor: U256,
+    pub fee_receiver_amount: U256,
+    pub fee_amount_for_pool: U256,
+    pub position_fee_amount_for_pool: U256,
+    pub position_fee_amount: U256,
+    pub total_cost_amount_excluding_funding: U256,
+    pub total_cost_amount: U256,
+}
+
+#[derive(Debug, Serialize, Deserialize, EthAbiType)]
+pub struct ExecutionPriceResult {
+    pub price_impact_usd: i128,
+    pub price_impact_diff_usd: U256,
+    pub execution_price: U256,
+}
+
+#[derive(Debug, Serialize, Deserialize, EthAbiType)]
+pub struct PositionInfo {
+    pub position: PositionProps,
+    pub fees: PositionFees,
+    pub execution_price_result: ExecutionPriceResult,
+    pub base_pnl_usd: i128,
+    pub uncapped_base_pnl_usd: i128,
+    pub pnl_after_price_impact_usd: i128,
 }
 
 // impl GmxV2ABI {
@@ -200,7 +293,7 @@ pub fn get_position_key(
     market: H160,
     collateral_token: H160,
     is_long: bool,
-) -> H256 {
+) -> [u8; 32] {
     let data_values: Vec<AbiToken> = vec![
         AbiToken::Address(account),
         AbiToken::Address(market),
@@ -209,12 +302,36 @@ pub fn get_position_key(
     ];
 
     let hash_hex = hash_data(data_values);
+    return  hash_hex;
     // Convert hex string to H256
-    H256::from_slice(&hex::decode(hash_hex).expect("Invalid hex string"))
+    // hex::decode(hash_hex).expect("Invalid hex string")
 }
 
-pub fn hash_data(data_values: Vec<AbiToken>) -> String {
+pub fn hash_data(data_values: Vec<AbiToken>) -> [u8; 32] {
     let encoded_bytes = ethers::abi::encode(&data_values);
-    let hash = keccak256(encoded_bytes);
-    hex::encode(hash)
+    keccak256(encoded_bytes)
+    // hex::encode(hash)
+}
+
+pub fn claimable_funding_amount_key(market: Address, token: Address, account: Address) -> String {
+    let claimable_funding_amount = keccak256(b"CLAIMABLE_FUNDING_AMOUNT");
+
+    let mut encoded = Vec::new();
+    encoded.extend_from_slice(&claimable_funding_amount);
+    encoded.extend_from_slice(&market.0);
+    encoded.extend_from_slice(&token.0);
+    encoded.extend_from_slice(&account.0);
+
+    hex::encode(keccak256(&encoded))
+}
+
+pub fn account_position_list_key(account: Address) -> H256 {
+    let account_position_list = keccak256(b"ACCOUNT_POSITION_LIST");
+
+    let mut encoded = Vec::new();
+    encoded.extend_from_slice(&account_position_list);
+    encoded.extend_from_slice(&account.0);
+
+    H256::from_slice(&keccak256(encoded))
+    // hex::encode(keccak256(&encoded))
 }

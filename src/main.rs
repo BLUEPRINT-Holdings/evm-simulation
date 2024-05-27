@@ -1,14 +1,18 @@
 use anyhow::{anyhow, Result};
 use cfmms::dex::DexVariant;
+use csv::Reader;
 use ethers::etherscan::Client;
 use ethers::middleware::SignerMiddleware;
 use ethers::providers::{Middleware, Provider, Ws};
 use ethers::signers::{LocalWallet, Signer};
 use ethers::types::transaction::eip2718::TypedTransaction;
-use ethers::types::{Block, BlockNumber, Eip1559TransactionRequest, NameOrAddress, TransactionReceipt, TransactionRequest, H160, H256, U256};
+use ethers::types::{
+    Block, BlockNumber, Eip1559TransactionRequest, NameOrAddress, TransactionReceipt,
+    TransactionRequest, H160, H256, U256,
+};
 use ethers_providers::{Http, PendingTransaction};
-use evm_simulation::gmx::{expand_decimals, fetch_token_price, GmxPlayground, EXCHANGE_ROUTER};
-use evm_simulation::interfaces::gmx::Token;
+use evm_simulation::gmx::{expand_decimals, fetch_token_price, GmxPlayground, GmxV2Reader, DATA_STORE, EXCHANGE_ROUTER, READER, REFERRAL_STORAGE};
+use evm_simulation::interfaces::gmx::{account_position_list_key, claimable_funding_amount_key, get_position_key, MarketPrices, PositionInfo, PriceProps, Token};
 use log::info;
 use std::env;
 use std::str::FromStr;
@@ -39,19 +43,19 @@ async fn main() -> Result<()> {
 
     let provider = Arc::new(Provider::<Http>::try_from(&env.https_url).unwrap());
     let chain_id = provider.get_chainid().await.unwrap();
-    wallet = wallet.with_chain_id(chain_id.as_u64());    
+    wallet = wallet.with_chain_id(chain_id.as_u64());
     let client = SignerMiddleware::new(provider.clone(), wallet.clone());
 
     let block = provider.get_block(BlockNumber::Latest).await.unwrap().unwrap();
     let args: Vec<String> = env::args().collect();
-    
+
     // args[0] はプログラム自体のパスです。args[1] が最初の引数
     if args.len() > 1 {
         match args[1].as_str() {
             "gmxv2" => {
                 println!("GMX V2 test started.");
                 execute_on_main(provider, &client, block.clone()).await;
-                // gmx_v2_test(provider.clone(), block).await;
+                // gmx_v2_on_simulation(provider.clone(), block).await;
                 // send_simple_transaction(&client.clone()).await.unwrap();
             }
             "honeypot" => {
@@ -69,9 +73,14 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-pub async fn execute_on_main(provider: Arc<Provider<Http>>, client: &SignerMiddleware<Arc<Provider<Http>>, LocalWallet>, block: Block<H256>) {
+pub async fn execute_on_main(
+    provider: Arc<Provider<Http>>,
+    client: &SignerMiddleware<Arc<Provider<Http>>, LocalWallet>,
+    block: Block<H256>,
+) {
     let mut gmx_playground = GmxPlayground::new(provider.clone(), block.clone());
-    
+    let reader = GmxV2Reader::new(*READER, provider.clone());
+
     let collateral_token = "ETH";
     let collateral_amount = 0.002;
     let size_delta_usd = 12_f64;
@@ -79,101 +88,68 @@ pub async fn execute_on_main(provider: Arc<Provider<Http>>, client: &SignerMiddl
     // Set execution fee to 0.0002 ETH
     let exec_fee = expand_decimals(0.0002, eth_token_decimals);
 
-    let typed_tx = gmx_playground.create_short_position_tx(collateral_token, collateral_amount, size_delta_usd, exec_fee).await.unwrap();
+    let typed_tx = gmx_playground
+        .create_short_position_tx(collateral_token, collateral_amount, size_delta_usd, exec_fee)
+        .await
+        .unwrap();
     let typed_tx: TypedTransaction = TypedTransaction::Eip1559(typed_tx);
     // let signature = client.sign_transaction(&typed_tx, gmx_playground.simulator.owner).await.unwrap();
     // println!("Signed transaction: {:?}", signature);
-
     // let pending_tx: PendingTransaction<'_, Http> = client.send_transaction(typed_tx, None).await.unwrap();
-    send_transaction(&client, typed_tx).await.unwrap();
+    // send_transaction(&client, typed_tx).await.unwrap();
+
+    /// Query
+    // getAccountPositions
+    // get calldata using gmx_v2_abi
+    // let get_account_positions_calldata = gmx_playground.get_account_positions();
+    // // call reader contract with calldata
+    // let query_tx = gmx_playground.fill_tx_fields(get_account_positions_calldata).await.unwrap();
+    // let query_tx: TypedTransaction = TypedTransaction::Eip1559(query_tx);
+    // let res = reader
+    //     .get_account_positions(*DATA_STORE, gmx_playground.simulator.owner, U256::zero(), U256::one())
+    //     .call()
+    //     .await
+    //     .unwrap();
+    // println!("Account positions: {:?}", res);
+
+    // getPositionInfo
+    // Call this for the latest funding amount and position info
+    let calldata = gmx_playground.get_position_info_calldata(H160::from_str("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336").unwrap()).await;
+    let query_tx: TypedTransaction = TypedTransaction::Eip1559(gmx_playground.fill_tx_fields(calldata).await.unwrap());
+    let res = reader.client().call(&query_tx, None).await.unwrap();
+    let position_info: PositionInfo = reader.decode_output("getPositionInfo", res).unwrap();
+    println!("Position Info: {:?}", position_info);
+
+    let accrued_funding_in_usd = gmx_playground.get_accrued_funding_fee_in_usd(position_info).await;
+    println!("Accrued funding in USD: {:?}", accrued_funding_in_usd);
 }
 
-async fn send_transaction(client: &SignerMiddleware<Arc<Provider<Http>>, LocalWallet>, typed_tx: TypedTransaction) -> Result<(), Box<dyn std::error::Error>> {
-    // let signed_tx = client.inner().sign_transaction(&typed_tx, client.address()).await?;
-    match client.send_transaction(typed_tx, None).await {
-        Ok(pending_tx) => {
-            // トランザクションのレシートを取得
-            let receipt = pending_tx.confirmations(1).await.unwrap();
-            println!("Transaction Receipt: {:?}", receipt);
-        },
-        Err(e) => {
-            println!("Error sending transaction: {:?}", e);
-        }
-    }
-
-    Ok(())
-}
-
-// For debug on sending transation on arbitrum mainnet
-async fn send_simple_transaction(
-    client: &SignerMiddleware<Arc<Provider<Http>>, LocalWallet>,
-) -> Result<(), Box<dyn std::error::Error>> {
-    let client = client.clone();
-    let nonce = client.get_transaction_count(client.address(), None).await.unwrap();
-
-    // トランザクションデータを設定
-    let to_address: H160 = "RECEIVER".parse()?; 
-    let value = U256::from(100000000000000u64); // 0.0001 ETH in wei 
-    let client = client.clone();
-    let gas_price = client.provider().get_gas_price().await.unwrap();
-    let client = client.clone();
-    let chain_id = client.get_chainid().await.unwrap();
-    println!("Chain ID: {:?}", chain_id);
-
-    // シンプルなトランザクションリクエストを作成
-    let tx_request = TransactionRequest {
-        from: Some(client.address()),
-        to: Some(to_address.into()),
-        nonce: Some(nonce),
-        gas: Some(U256::from(50000)), // 標準的なETH送信トランザクションのガスリミット
-        gas_price: Some(gas_price),
-        value: Some(value),
-        data: None,
-        chain_id: Some(chain_id.as_u64().into()),
-    };
-    let client = client.clone();
-    match client.send_transaction(tx_request, None).await {
-        Ok(pending_tx) => {
-            let receipt = pending_tx.confirmations(1).await?;
-            println!("Transaction Receipt: {:?}", receipt);
-        },
-        Err(e) => {
-            println!("Error sending transaction: {:?}", e);
-        }
-    }
-
-    Ok(())
-}
-
-async fn gmx_v2_test(provider: Arc<Provider<Http>>, block: Block<H256>) {
-    let prices = fetch_token_price("ETH".to_string()).await;
-    println!("Prices: {:?}", prices.unwrap());
+// NOTE: In conclusion, functions on simulation weren't working as expected.
+async fn gmx_v2_on_simulation(provider: Arc<Provider<Http>>, block: Block<H256>) {
     let mut gmx_playground = GmxPlayground::new(provider.clone(), block.clone());
     let eth_amount = 1;
     // set eth balance to owner address
     gmx_playground.simulator.set_eth_balance(eth_amount);
-    let eth_balance = gmx_playground.simulator.get_eth_balance();
-    println!("ETH Balance: {:?}", eth_balance);
-
+    // let eth_balance = gmx_playground.simulator.get_eth_balance();
     // let usdc = H160::from_str("0xaf88d065e77c8cC2239327C5EDb3A432268e5831").unwrap();
     // gmx_playground.simulator.set_token_balance(gmx_playground.simulator.owner,usdc, 18, U256::from(1000000000));
 
     // in case of using eth for deposit, dont need to approve before
     // directly defining weth token address for now
-    let collateral_token = "ETH";
-    let collateral_amount = 0.5;
-    let size_delta_usd = 1000_f64;
+    // let collateral_token = "ETH";
+    // let collateral_amount = 0.5;
+    // let size_delta_usd = 1000_f64;
     // let create_position_res = gmx_playground
-        // .create_short_position(collateral_token, collateral_amount, size_delta_usd)
-        // .await;
+    // .create_short_position(collateral_token, collateral_amount, size_delta_usd)
+    // .await;
     // let res = gmx_playground.simulator.provider.call(tx, None).await;
     // println!("Create Position res: {:?}", create_position_res);
     let market_token = H160::from_str("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336").unwrap();
 
     // let positions = gmx_playground.get_account_positions();
     // println!("Positions: {:?}", positions);
-    let position_info = gmx_playground.get_position_info(market_token);
-    println!("Position Info: {:?}", position_info);
+    // let position_info = gmx_playground.get_position_info_calldata(market_token).await;
+    // println!("Position Info: {:?}", position_info);
 }
 
 async fn honeypot_test(env: Env, provider: Arc<Provider<Http>>, block: Block<H256>) {
@@ -214,4 +190,60 @@ async fn honeypot_test(env: Env, provider: Arc<Provider<Http>>, block: Block<H25
         })
         .collect();
     info!("Verified pools: {:?} pools", verified_pools.len());
+}
+
+async fn send_simple_transaction(
+    client: &SignerMiddleware<Arc<Provider<Http>>, LocalWallet>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let client = client.clone();
+    let nonce = client.get_transaction_count(client.address(), None).await.unwrap();
+
+    let to_address: H160 = "RECEIVER".parse()?;
+    let value = U256::from(100000000000000u64); // 0.0001 ETH in wei
+    let client = client.clone();
+    let gas_price = client.provider().get_gas_price().await.unwrap();
+    let client = client.clone();
+    let chain_id = client.get_chainid().await.unwrap();
+    println!("Chain ID: {:?}", chain_id);
+
+    let tx_request = TransactionRequest {
+        from: Some(client.address()),
+        to: Some(to_address.into()),
+        nonce: Some(nonce),
+        gas: Some(U256::from(50000)), 
+        gas_price: Some(gas_price),
+        value: Some(value),
+        data: None,
+        chain_id: Some(chain_id.as_u64().into()),
+    };
+    let client = client.clone();
+    match client.send_transaction(tx_request, None).await {
+        Ok(pending_tx) => {
+            let receipt = pending_tx.confirmations(1).await?;
+            println!("Transaction Receipt: {:?}", receipt);
+        }
+        Err(e) => {
+            println!("Error sending transaction: {:?}", e);
+        }
+    }
+
+    Ok(())
+}
+async fn send_transaction(
+    client: &SignerMiddleware<Arc<Provider<Http>>, LocalWallet>,
+    typed_tx: TypedTransaction,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // let signed_tx = client.inner().sign_transaction(&typed_tx, client.address()).await?;
+    match client.send_transaction(typed_tx, None).await {
+        Ok(pending_tx) => {
+            // トランザクションのレシートを取得
+            let receipt = pending_tx.confirmations(1).await.unwrap();
+            println!("Transaction Receipt: {:?}", receipt);
+        }
+        Err(e) => {
+            println!("Error sending transaction: {:?}", e);
+        }
+    }
+
+    Ok(())
 }
