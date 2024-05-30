@@ -26,7 +26,7 @@ use crate::tokens::get_token_info;
 use crate::trace::EvmTracer;
 
 #[derive(Clone)]
-pub struct EvmSimulator<M> {
+pub struct EvmSimulator<M: Clone> {
     pub provider: Arc<M>,
     pub owner: H160,
     pub evm: EVM<CacheDB<SharedBackend>>,
@@ -74,7 +74,7 @@ pub enum SwapError {
     TxFailed(anyhow::Error),
 }
 
-impl<M: Middleware + 'static> EvmSimulator<M> {
+impl<M: Middleware + 'static + std::clone::Clone> EvmSimulator<M> {
     pub fn new(provider: Arc<M>, owner: H160, block_number: U64) -> Self {
         let shared_backend = SharedBackend::spawn_backend_thread(
             provider.clone(),

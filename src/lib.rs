@@ -1,4 +1,5 @@
 pub mod constants;
+pub mod gmx;
 pub mod honeypot;
 pub mod interfaces;
 pub mod paths;
