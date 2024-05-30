@@ -98,11 +98,10 @@ impl Token {
     }
 
     pub fn from_address(address: &str) -> Option<Token> {
-        println!("address: {:?}", address);
         match address {
-            "0x82af49447d8a07e3bd95BD0d56f35241523fbab1" => Some(Token::ETH),
-            "0x47904963fc8b2340414262125af798B9655e58cd" => Some(Token::BTC),
-            "0xaf88d065e77c8cc2239327c5edb3A432268e5831" => Some(Token::USDC),
+            "0x82af49447d8a07e3bd95bd0d56f35241523fbab1" => Some(Token::ETH),
+            "0x47904963fc8b2340414262125af798b9655e58cd" => Some(Token::BTC),
+            "0xaf88d065e77c8cc2239327c5edb3a432268e5831" => Some(Token::USDC),
             _ => None,
         }
     }

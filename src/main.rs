@@ -83,6 +83,7 @@ pub async fn execute_on_main(
 
     let collateral_token = "ETH";
     let collateral_amount = 0.002;
+    let market_token = H160::from_str("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336").unwrap();
     let size_delta_usd = 12_f64;
     let eth_token_decimals = Token::from_name("ETH").unwrap().info().decimals;
     // Set execution fee to 0.0002 ETH
@@ -114,7 +115,7 @@ pub async fn execute_on_main(
 
     // getPositionInfo
     // Call this for the latest funding amount and position info
-    let calldata = gmx_playground.get_position_info_calldata(H160::from_str("0x70d95587d40A2caf56bd97485aB3Eec10Bee6336").unwrap()).await;
+    let calldata = gmx_playground.get_position_info_calldata(market_token).await;
     let query_tx: TypedTransaction = TypedTransaction::Eip1559(gmx_playground.fill_tx_fields(calldata).await.unwrap());
     let res = reader.client().call(&query_tx, None).await.unwrap();
     let position_info: PositionInfo = reader.decode_output("getPositionInfo", res).unwrap();
@@ -122,6 +123,14 @@ pub async fn execute_on_main(
 
     let accrued_funding_in_usd = gmx_playground.get_accrued_funding_fee_in_usd(position_info).await;
     println!("Accrued funding in USD: {:?}", accrued_funding_in_usd);
+
+    // Execute calimFundingFees
+    let claim_funding_fee_calldata = gmx_playground.claim_funding_fees(market_token);
+    let typed_tx = gmx_playground.fill_tx_fields(claim_funding_fee_calldata).await.unwrap();
+    let typed_tx: TypedTransaction = TypedTransaction::Eip1559(typed_tx);
+    send_transaction(&client, typed_tx).await.unwrap();
+
+
 }
 
 // NOTE: In conclusion, functions on simulation weren't working as expected.

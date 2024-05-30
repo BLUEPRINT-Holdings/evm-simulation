@@ -201,6 +201,22 @@ impl<M: Middleware + 'static + std::clone::Clone> GmxPlayground<M> {
         Ok(typed_tx)
     }
 
+    // Just return the calldata for now
+    pub fn claim_funding_fees(&self, market_token_addr: H160) -> Bytes {
+        let market_token_addrs = vec![market_token_addr, market_token_addr];
+        // TODO: Define market_token_address and long, short addreses in the same struct
+        // and extract long and short addresses from the struct
+        let long_token_addr = *WETH;
+        let short_token_addr = H160::from_str(Token::from_name("USDC").unwrap().info().address).unwrap();
+        let long_short_token_adrdrs = vec![long_token_addr, short_token_addr];
+        let receiver = self.simulator.owner;
+        let calldata = self
+            .exchange_router
+            .encode("claimFundingFees", (market_token_addrs,long_short_token_adrdrs, receiver))
+            .unwrap();
+        calldata
+    }
+
     pub async fn fill_tx_fields(&mut self, calldata: Bytes) -> Result<Eip1559TransactionRequest> {
         let priority_fee: U256 = U256::from(100000000);
         let gas_price: U256 = self.simulator.provider.get_gas_price().await.unwrap();
@@ -219,7 +235,7 @@ impl<M: Middleware + 'static + std::clone::Clone> GmxPlayground<M> {
         let typed_tx: Eip1559TransactionRequest =
             ethers::types::transaction::eip1559::Eip1559TransactionRequest {
                 from: Some(self.simulator.owner),
-                to: Some(NameOrAddress::Address(*READER)).into(),
+                to: Some(NameOrAddress::Address(*EXCHANGE_ROUTER)).into(),
                 nonce: Some(nonce),
                 max_priority_fee_per_gas: Some(priority_fee),
                 max_fee_per_gas: Some(max_fee_per_gas),
@@ -309,7 +325,7 @@ impl<M: Middleware + 'static + std::clone::Clone> GmxPlayground<M> {
         // println!("Position Info: {:?}", outputs);
     }
 
-    pub async fn get_accrued_funding_fee_in_usd(&self, position_info: IPositionInfo) -> U256 {
+    pub async fn get_accrued_funding_fee_in_usd(&self, position_info: IPositionInfo) -> f64 {
         let long_token_funding_amount = position_info.fees.funding.claimable_long_token_amount;
         let short_token_funding_amount = position_info.fees.funding.claimable_short_token_amount;
         // Assume we are using collateral in long token
@@ -319,23 +335,20 @@ impl<M: Middleware + 'static + std::clone::Clone> GmxPlayground<M> {
         let collateral_token_decimals = collateral_token_info.decimals;
         let collateral_token_name = collateral_token_info.name;
         let long_token_prices = fetch_token_price(collateral_token_name.to_string()).await.unwrap();
-        let short_token_prices = fetch_token_price("USDC".to_string()).await.unwrap();
+        println!("Long Token Prices: {:?}", long_token_prices);
+        let price_decimal = 30 - collateral_token_decimals;
         let long_token_funding_in_usd = mul_div(
             long_token_funding_amount,
             long_token_prices.min_price_full,
             U256::from(10).pow(U256::from(collateral_token_decimals)),
         ).unwrap();
-        // println!("Long Token Funding in USD: {:?}", long_token_funding_in_usd);
+        let long_token_funding_in_usd = u256_to_f64(long_token_funding_in_usd) / 10_f64.powf(price_decimal.into());
+        println!("Long Token Funding in USD: {:?}", long_token_funding_in_usd);
 
-        let funding_in_usd = long_token_funding_in_usd.checked_add(
-            mul_div(
-                short_token_funding_amount,
-                short_token_prices.max_price_full,
-                U256::from(10).pow(U256::from(6)), // Short token must be USDC so 6 decimals
-            ).unwrap(),
-        );
+        let short_token_funding_in_usd = u256_to_f64(short_token_funding_amount) / 10_f64.powf(6.0);
+        let funding_in_usd = long_token_funding_in_usd + short_token_funding_in_usd;
 
-        funding_in_usd.unwrap()
+        funding_in_usd
     }
 }
 
@@ -459,7 +472,17 @@ pub async fn fetch_token_price(
 pub fn mul_div(value: U256, numerator: U256, denominator: U256) -> Option<U256> {
     // Perform the multiplication
     let result = value.checked_mul(numerator).unwrap();
-    println!("Result: {:?}", result);
     // Perform the division and return the result
     result.checked_div(denominator)
+}
+
+
+pub fn u256_to_f64(value: U256) -> f64 {
+    let mut result = 0.0;
+    let base: f64 = 2.0_f64.powf(64.0); // 2^64
+    for i in 0..4 {
+        let part = (value >> (i * 64)).low_u64() as f64;
+        result += part * base.powi(i as i32);
+    }
+    result
 }
